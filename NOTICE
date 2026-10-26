@@ -1,0 +1,4 @@
+Extracted from devantler-tech/.github at f5d078cc4b04ecb15432ed4e34cba1142a6279d4.
+Original component: actions/update-agent-skills.
+Shared runtime helpers and their existing tests retain their Apache-2.0 license.
+The extraction relocates action metadata and bundled paths to this repository root.

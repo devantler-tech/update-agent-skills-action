@@ -1,0 +1,14 @@
+name: Release
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions: {}
+jobs:
+  release:
+    uses: devantler-tech/.github/.github/workflows/create-release.yaml@f5d078cc4b04ecb15432ed4e34cba1142a6279d4 # v13.2.15
+    with:
+      disable-issue-side-effects: true
+      warn-missing-breaking-bang: true
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
