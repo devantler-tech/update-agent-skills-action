@@ -48,7 +48,7 @@ jobs:
           token: ${{ steps.app-token.outputs.token }}
           branch-token: ${{ steps.app-token.outputs.token }}
           sign-commits: true
-          draft: true
+          draft: always-true
           add-paths: .scripts/gh-release-digests.tsv
           base: main
           branch: automation/gh-release-digests

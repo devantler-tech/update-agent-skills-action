@@ -122,4 +122,42 @@ if out="$(run_apply missing skills/alpha)"; then
 fi
 echo "ok: the apply step refuses a patch outside its skill and a missing patch"
 
+# Execute the actual removal and action update body in their declared order.
+# A root scan must update only the caller's skills, never the checkout's fixtures.
+visibility="$work/visibility"
+mkdir -p "$visibility/skills/local" "$visibility/.devantler-tech-actions/.github/tests/fixtures/example" "$work/visibility-bin"
+printf 'caller skill\n' > "$visibility/skills/local/SKILL.md"
+printf 'checkout fixture\n' > "$visibility/.devantler-tech-actions/.github/tests/fixtures/example/SKILL.md"
+yq -r '.runs.steps[] | select(.id == "update") | .run' "$repo_root/action.yml" > "$work/discovery-action.sh"
+cat > "$work/visibility-bin/gh" <<'GH'
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$1 $2 $3 $4" == "skill update --all --dir" ]] || exit 64
+printf '%s\n' "$(cd "$5" && pwd -P)" >> "$VISIBILITY_CALLS"
+GH
+chmod +x "$work/visibility-bin/gh"
+: > "$work/visibility-calls"
+for stage in $(q '.jobs.update-agent-skills.steps[] | select(.id == "update" or .name == "🧹 Remove self-checkout") | (.id // "remove")'); do
+  case "$stage" in
+    update)
+      (cd "$visibility" &&
+        PATH="$work/visibility-bin:$PATH" VISIBILITY_CALLS="$work/visibility-calls" \
+        GITHUB_ACTION_PATH="$repo_root" GITHUB_OUTPUT="$work/discovery-output" \
+        INPUT_DIR=. INPUT_DRY_RUN=true INPUT_UNPIN=false INPUT_MARK_INTERNAL=false INPUT_PINS='' \
+        bash "$work/discovery-action.sh") > "$work/discovery-log" 2>&1 || {
+          cat "$work/discovery-log" >&2
+          fail "the real update body failed the checkout visibility fixture"
+        }
+      ;;
+    remove)
+      q '.jobs.update-agent-skills.steps[] | select(.name == "🧹 Remove self-checkout") | .run' > "$work/remove-checkout.sh"
+      (cd "$visibility" && bash "$work/remove-checkout.sh")
+      ;;
+  esac
+done
+expected_root="$(cd "$visibility/skills" && pwd -P)"
+[[ "$(cat "$work/visibility-calls")" == "$expected_root" ]] ||
+  fail "default directory scan updated the source checkout's fixture skills"
+echo "ok: the default scan sees only caller skills after checkout removal"
+
 echo "PASS: update-agent-skills keeps its single PR by default and opens isolated per-skill PRs when opted in"

@@ -3,7 +3,14 @@
 set -euo pipefail
 root="$(cd "$(dirname "$0")/../.." && pwd)"
 scratch="$(mktemp -d)"
-trap 'rm -rf "$scratch"' EXIT
+download_log="$scratch/download-directories"
+cleanup() {
+  if [[ -f "$download_log" ]]; then
+    while IFS= read -r created; do rm -rf -- "$created"; done < "$download_log"
+  fi
+  rm -rf -- "$scratch"
+}
+trap cleanup EXIT
 fail() { echo "FAIL: $*" >&2; exit 1; }
 mkdir -p "$scratch/bin" "$scratch/source" "$scratch/archive/gh_2.81.0_linux_amd64/bin" "$scratch/runtime"
 cp "$root/.scripts/ensure-gh-skill.sh" "$root/.scripts/retry.sh" "$scratch/source/"
@@ -41,6 +48,16 @@ case "$4" in
 esac
 CURL
 chmod +x "$scratch/version-producer" "$scratch/bin/uname" "$scratch/bin/curl"
+OBS_NATIVE_MKTEMP="$(command -v mktemp)"
+export OBS_NATIVE_MKTEMP OBS_DOWNLOAD_DIRS="$download_log"
+cat > "$scratch/bin/mktemp" <<'MKTEMP'
+#!/usr/bin/env bash
+set -euo pipefail
+created="$("$OBS_NATIVE_MKTEMP" "$@")"
+if [[ "${1:-}" == -d ]]; then printf '%s\n' "$created" >> "$OBS_DOWNLOAD_DIRS"; fi
+printf '%s\n' "$created"
+MKTEMP
+chmod +x "$scratch/bin/mktemp"
 cp "$scratch/version-producer" "$scratch/archive/gh_2.81.0_linux_amd64/bin/gh"
 tar -czf "$scratch/gh_2.81.0_linux_amd64.tar.gz" -C "$scratch/archive" gh_2.81.0_linux_amd64
 if command -v sha256sum >/dev/null 2>&1; then
@@ -84,6 +101,7 @@ GH
 chmod +x "$scratch/bin/gh"
 export OBS_ARCH=x86_64 OBS_ATTESTED="$scratch/attested"
 for scenario in downloaded-satisfied downloaded-stale downloaded-failed; do
+  : > "$download_log"
   : > "$GITHUB_PATH"; rm -f "$OBS_COMPLETE" "$OBS_ATTESTED"
   export INSTALL_NAMESPACE="$scenario" OBS_VERSION=2.81.0 OBS_VERSION_EXIT=0
   [[ "$scenario" != downloaded-stale ]] || OBS_VERSION=2.0.0
@@ -104,5 +122,9 @@ for scenario in downloaded-satisfied downloaded-stale downloaded-failed; do
   if [[ "$scenario" != downloaded-satisfied ]]; then
     [[ ! -s "$GITHUB_PATH" && ! -e "$RUNNER_TEMP/$scenario/bin/gh" ]] || fail 'rejected candidate reached publication'
   fi
+  [[ -s "$download_log" ]] || fail "$scenario did not create a download directory"
+  while IFS= read -r created; do
+    [[ ! -e "$created" ]] || fail "$scenario left temporary download files"
+  done < "$download_log"
 done
 printf 'GitHub CLI version observation: complete producers and failure boundaries passed\n'

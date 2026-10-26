@@ -10,15 +10,15 @@ workflow="$root/.github/workflows/refresh-gh-digests.yaml"
 admission='${{ github.repository == '\''devantler-tech/update-agent-skills-action'\'' && github.ref == '\''refs/heads/main'\'' && github.workflow_ref == '\''devantler-tech/update-agent-skills-action/.github/workflows/refresh-gh-digests.yaml@refs/heads/main'\'' && (github.event_name == '\''schedule'\'' || github.event_name == '\''workflow_dispatch'\'') }}'
 check_boundary() {
   yq -o=json '.' "$1" | jq -e --arg admission "$admission" '
+    .jobs.refresh as $job | $job.steps as $steps |
     (keys | sort) == ["jobs","name","on","permissions"] and
     .permissions == {} and (.on | keys | sort) == ["schedule", "workflow_dispatch"] and
     .on.workflow_dispatch == null and .on.schedule == [{cron:"17 4 * * 1"}] and
-    (.jobs | keys) == ["refresh"] and .jobs.refresh as $job |
+    (.jobs | keys) == ["refresh"] and
     ($job | keys | sort) == ["concurrency","if","permissions","runs-on","steps","timeout-minutes"] and
     $job."runs-on" == "ubuntu-latest" and $job."timeout-minutes" == 10 and
     $job.if == $admission and $job.permissions == {contents:"read"} and
     $job.concurrency == {group:"refresh-gh-digests",queue:"max","cancel-in-progress":false} and
-    $job.steps as $steps |
     ($steps | length) == 5 and all($steps[];
       (keys - ["name","id","if","uses","with","run"] | length) == 0) and
     ($steps[0] | del(.name)) == {
@@ -39,7 +39,7 @@ check_boundary() {
     ([$steps[]|select(.id=="pr")][0] as $pr |
       $pr.uses == "peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1" and
       $pr.if == "${{ steps.prepare.outputs.changed == '\''true'\'' }}" and
-      $pr.with."sign-commits" == true and $pr.with.draft == true and
+      $pr.with."sign-commits" == true and $pr.with.draft == "always-true" and
       $pr.with."add-paths" == ".scripts/gh-release-digests.tsv" and
       $pr.with.token == "${{ steps.app-token.outputs.token }}" and
       $pr.with."branch-token" == "${{ steps.app-token.outputs.token }}" and
@@ -50,7 +50,7 @@ check_boundary() {
   ' >/dev/null
 }
 check_boundary "$workflow" || fail 'updater source/credential/PR boundary is unsafe'
-for mutation in hardening-source admission token-scope persisted source signing draft paths write-token early-token tolerated fallback ambient-secret early-secret; do
+for mutation in hardening-source admission token-scope persisted source signing draft ready-on-update paths write-token early-token tolerated fallback ambient-secret early-secret; do
   cp "$workflow" "$work/mutated.yaml"
   # shellcheck disable=SC2016 # Literal GitHub expressions in boundary controls.
   case "$mutation" in
@@ -61,6 +61,7 @@ for mutation in hardening-source admission token-scope persisted source signing 
     source) yq -i '(.jobs.refresh.steps[]|select(.id=="source")).with.ref = "main"' "$work/mutated.yaml" ;;
     signing) yq -i '(.jobs.refresh.steps[]|select(.id=="pr")).with."sign-commits" = false' "$work/mutated.yaml" ;;
     draft) yq -i '(.jobs.refresh.steps[]|select(.id=="pr")).with.draft = false' "$work/mutated.yaml" ;;
+    ready-on-update) yq -i '(.jobs.refresh.steps[]|select(.id=="pr")).with.draft = true' "$work/mutated.yaml" ;;
     paths) yq -i '(.jobs.refresh.steps[]|select(.id=="pr")).with."add-paths" = "."' "$work/mutated.yaml" ;;
     write-token) yq -i '.jobs.refresh.permissions.contents = "write"' "$work/mutated.yaml" ;;
     early-token) yq -i '.jobs.refresh.steps |= sort_by(.id == "prepare")' "$work/mutated.yaml" ;;

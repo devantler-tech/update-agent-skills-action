@@ -133,17 +133,26 @@ jobs:
           persist-credentials: false
           token: ${{ steps.app-token.outputs.token || github.token }}
 
-      # Self-reference: check out THIS workflow's own repo at the exact commit it is running
-      # from (job.workflow_repository / job.workflow_sha), then call the sibling action by
-      # local path. Same-commit resolution — no release lag, no tag refs; consumer SHA-pinning
-      # policies see only the pinned actions/checkout plus a local `./` path.
+      # The optional splitter comes from this workflow's exact source commit. Copy it out
+      # and remove the checkout before the action scans the caller's installed skills.
       - name: 📥 Checkout update-agent-skills-action (this workflow's commit)
+        if: ${{ inputs.pr-per-skill }}
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: ${{ job.workflow_repository }}
           ref: ${{ job.workflow_sha }}
           path: .devantler-tech-actions
           persist-credentials: false
+
+      - name: 📋 Keep the per-skill splitter
+        if: ${{ inputs.pr-per-skill }}
+        run: cp .devantler-tech-actions/.github/scripts/split-skill-updates.sh "$RUNNER_TEMP/split-skill-updates.sh"
+
+      # Root scans must not discover the checkout's fixture skills, and the PR must not
+      # carry the checkout as a stray gitlink. The action itself resolves through $/.
+      - name: 🧹 Remove self-checkout
+        if: ${{ inputs.pr-per-skill }}
+        run: rm -rf .devantler-tech-actions
 
       - name: 🔄 Update installed skills
         id: update
@@ -154,17 +163,6 @@ jobs:
           mark-internal: ${{ inputs.mark-internal }}
           pins: ${{ inputs.pins }}
           gh-version: ${{ inputs.gh-version }}
-
-      # The per-skill splitter stages everything under `dir`, which is the repository root by
-      # default, so it must run after the self-checkout is gone; keep a copy of it first.
-      - name: 📋 Keep the per-skill splitter
-        if: ${{ inputs.pr-per-skill && steps.update.outputs.changed == 'true' }}
-        run: cp .devantler-tech-actions/.github/scripts/split-skill-updates.sh "$RUNNER_TEMP/split-skill-updates.sh"
-
-      # create-pull-request commits every workspace change, so drop the self-checkout first —
-      # otherwise the opened PR would carry a stray `.devantler-tech-actions` gitlink.
-      - name: 🧹 Remove self-checkout
-        run: rm -rf .devantler-tech-actions
 
       # Per-skill mode (#1309): one patch per changed skill, opened as its own PR by the job below,
       # so a skill whose update is blocked holds back only itself (agent-plugins#175).

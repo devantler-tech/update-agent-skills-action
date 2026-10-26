@@ -7,13 +7,6 @@ This reusable workflow runs on GitHub.com, using its self repository references 
 <details>
 <summary>Purpose, interface and usage</summary>
 
-This repository refreshes its declared GitHub CLI release digests weekly and on demand through
-[the reviewed digest updater](../.github/workflows/refresh-gh-digests.yaml). It resolves the shared
-installer version, validates every supported platform, then opens a signed draft containing only
-the digest manifest. No-change runs mint no write token. The draft must pass normal review and CI
-before its digests become installer authority; unsupported custom versions retain their warning
-and existing verification behavior.
-
 [.github/workflows/update-agent-skills.yaml](../.github/workflows/update-agent-skills.yaml) is a workflow used to keep installed agent skills (Copilot, Claude Code, …) up-to-date via [`gh skill update --all`](https://github.blog/changelog/2026-04-16-manage-agent-skills-with-github-cli/), opening a PR with any changes. Each installed `SKILL.md`'s `metadata.github-*` frontmatter is the source of truth — no lockfile is required. Works with any mix of `gh skill`-compatible upstreams.
 
 #### Usage
@@ -59,4 +52,13 @@ The workflow assumes skills were previously installed with [`devantler-tech/setu
 > **Note:** The calling workflow must grant `contents: write` and `pull-requests: write` permissions.
 
 </details>
+
+### GitHub CLI digest maintenance
+
+This repository refreshes its declared GitHub CLI release digests weekly and on demand through
+[the reviewed digest updater](../.github/workflows/refresh-gh-digests.yaml). It resolves the shared
+installer version, validates every supported platform, then opens or returns to draft a signed PR
+containing only the digest manifest. No-change runs mint no write token. The draft must pass normal
+review and CI before its digests become installer authority; unsupported custom versions retain
+their warning and existing verification behavior.
 

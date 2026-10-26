@@ -37,7 +37,7 @@ root="$5"
 skill="$root/demo"
 [[ -d "$skill" ]] || exit 0 # only the root holding the demo skill is edited
 case "$SCENARIO" in
-  noop) ;;
+  noop|quiet|progress-only) ;;
   skill-md) printf 'Updated guidance.\n' >>"$skill/SKILL.md" ;;
   aux-modified) printf '# updated upstream\n' >>"$skill/scripts/helper.sh" ;;
   aux-added) mkdir -p "$skill/templates" && printf 'new template\n' >"$skill/templates/new.md" ;;
@@ -51,7 +51,11 @@ case "$SCENARIO" in
   git-metadata) printf 'ref: refs/heads/other\n' >"$skill/.git/HEAD" ;;
   *) echo "unknown scenario $SCENARIO" >&2; exit 64 ;;
 esac
-echo "Updated demo"
+case "$SCENARIO" in
+  quiet) ;;
+  progress-only) echo "Checking 2 installed skills" ;;
+  *) echo "Updated demo" ;;
+esac
 EOF
 chmod +x "$work/bin/gh"
 
@@ -100,3 +104,5 @@ expect skill-added true
 expect noop false
 expect same-bytes false
 expect git-metadata false
+expect quiet false
+expect progress-only false

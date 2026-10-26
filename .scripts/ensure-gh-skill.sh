@@ -61,6 +61,7 @@ if ! command -v gh >/dev/null 2>&1 || ! gh attestation --help >/dev/null 2>&1; t
 fi
 
 tmp=$(mktemp -d)
+trap 'rm -rf -- "$tmp"' EXIT
 asset="gh_${REQUIRED}_${os}_${arch}.${ext}"
 url="https://github.com/cli/cli/releases/download/v${REQUIRED}/${asset}"
 echo "Downloading $url"

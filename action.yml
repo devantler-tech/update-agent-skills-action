@@ -224,8 +224,7 @@ runs:
 
         # Strip spinner carriage-returns + ANSI escape sequences before exposing stdout as an output.
         cleaned=$(sed -e 's/\r/\n/g' -e 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$out" \
-          | grep -vE '^Checking .* installed skill' \
-          | sed '/^$/d')
+          | sed -e '/^Checking .* installed skill/d' -e '/^$/d')
         {
           echo "updated-skills<<EOF"
           printf '%s\n' "$cleaned"
