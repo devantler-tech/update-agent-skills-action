@@ -35,11 +35,11 @@ dir="${dir%/}"
 
 work="$(mktemp -d)" || fail "could not create a work directory"
 trap 'rm -rf "$work"' EXIT
-export GIT_INDEX_FILE="$work/index"
 real_index="$(git rev-parse --git-path index)" || fail "not inside a git checkout"
 if [[ -f "$real_index" ]]; then
-  cp "$real_index" "$GIT_INDEX_FILE" || fail "could not copy the index"
+  cp "$real_index" "$work/index" || fail "could not copy the index"
 fi
+export GIT_INDEX_FILE="$work/index"
 
 # Stage the whole checkout, not only <dir>: the single-PR mode commits every workspace change, so a
 # change outside <dir> must fail here rather than silently miss every per-skill pull request.

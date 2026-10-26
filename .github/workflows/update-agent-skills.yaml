@@ -264,14 +264,23 @@ jobs:
           patch="$RUNNER_TEMP/skill-updates/${SKILL_SLUG}.patch"
           [[ -s "$patch" ]] || { echo "::error::No patch for ${SKILL_PATH}"; exit 1; }
           git apply --binary "$patch"
-          changed="$(git status --porcelain --untracked-files=all)"
-          [[ -n "$changed" ]] || { echo "::error::The ${SKILL_PATH} patch changed nothing"; exit 1; }
-          while IFS= read -r file; do
-            if [[ "${file:3}" != "${SKILL_PATH}/"* ]]; then
-              echo "::error::The ${SKILL_PATH} patch changed ${file:3}, outside that skill"
+          status_file="$(mktemp)"
+          trap 'rm -f -- "$status_file"' EXIT
+          git status --porcelain=v1 --untracked-files=all -z > "$status_file"
+          [[ -s "$status_file" ]] || { echo "::error::The ${SKILL_PATH} patch changed nothing"; exit 1; }
+          check_skill_path() {
+            if [[ "$1" != "${SKILL_PATH}/"* ]]; then
+              echo "::error::The ${SKILL_PATH} patch changed $1, outside that skill"
               exit 1
             fi
-          done <<<"$changed"
+          }
+          while IFS= read -r -d '' record; do
+            check_skill_path "${record:3}"
+            # Porcelain -z emits a second raw path for a rename or copy. Check both.
+            case "${record:0:2}" in
+              *R*|*C*) IFS= read -r -d '' source; check_skill_path "$source" ;;
+            esac
+          done < "$status_file"
 
       - name: 📦 Create pull request
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1

@@ -33,6 +33,7 @@ cat >"$work/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 [[ "$1 $2 $3 $4" == "skill update --all --dir" ]] || { echo "unexpected gh call: $*" >&2; exit 64; }
+if [[ -n "${CALL_LOG:-}" ]]; then printf called >> "$CALL_LOG"; fi
 root="$5"
 skill="$root/demo"
 [[ -d "$skill" ]] || exit 0 # only the root holding the demo skill is edited
@@ -106,3 +107,16 @@ expect same-bytes false
 expect git-metadata false
 expect quiet false
 expect progress-only false
+
+# A skill itself is not a safe --all scan root: deriving its parent updates siblings.
+skills="$work/single-skill"
+new_skills "$skills"
+if PATH="$work/bin:$PATH" SCENARIO=aux-modified CALL_LOG="$work/root-calls" \
+  GITHUB_ACTION_PATH="$action_dir" GITHUB_OUTPUT="$work/root-output" GH_TOKEN=stub-not-a-secret RETRY_MAX_ATTEMPTS=1 \
+  INPUT_DIR="$skills/demo" INPUT_DRY_RUN=false INPUT_UNPIN=false INPUT_MARK_INTERNAL=false INPUT_PINS='' \
+  bash --noprofile --norc -eo pipefail "$script" > "$work/root-log" 2>&1; then
+  fail 'the action accepted a skill directory that would broaden its update root'
+fi
+[[ ! -e "$work/root-calls" ]] || fail 'an unsafe skill-root input reached gh skill update'
+grep -q 'contains SKILL.md' "$work/root-log" || fail 'the unsafe-root refusal does not explain the input requirement'
+echo 'ok: a skill-root input is refused before updating siblings'

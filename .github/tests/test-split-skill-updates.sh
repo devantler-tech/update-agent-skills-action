@@ -139,4 +139,23 @@ for bad in /etc ../outside ""; do
 done
 echo "ok: absolute, escaping and empty directories are refused"
 
+# A tracked file remains tracked when an ignore rule would prevent adding it anew.
+ignored="$work/ignored"
+git init -q -b main "$ignored"
+git -C "$ignored" config user.name Fixture
+git -C "$ignored" config user.email fixture@example.invalid
+git -C "$ignored" config commit.gpgsign false
+skill "$ignored" skills/demo 'demo v1'
+printf '*.txt\n' > "$ignored/.gitignore"
+printf 'retained reference\n' > "$ignored/skills/demo/reference.txt"
+git -C "$ignored" add .gitignore skills/demo/SKILL.md
+git -C "$ignored" add -f skills/demo/reference.txt
+git -C "$ignored" commit -qm base
+printf 'updated guidance\n' >> "$ignored/skills/demo/SKILL.md"
+manifest="$(cd "$ignored" && bash "$splitter" skills "$work/out-ignored")" || fail 'tracked ignored-file fixture failed'
+[[ "$(jq -c . <<< "$manifest")" == '[{"slug":"demo","path":"skills/demo"}]' ]] || fail 'wrong ignored-file manifest'
+files="$(git -C "$ignored" apply --numstat "$work/out-ignored/demo.patch" | cut -f3)"
+[[ "$files" == skills/demo/SKILL.md ]] || fail "an untouched tracked ignored file entered the patch: $files"
+echo 'ok: tracked ignored files are retained in the copied index'
+
 echo "PASS: per-skill splitting isolates every skill's update and fails closed on anything else"

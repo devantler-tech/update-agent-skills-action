@@ -95,9 +95,14 @@ git -C "$repo" config commit.gpgsign false
 mkdir -p "$repo/skills/alpha" "$repo/skills/beta"
 printf 'alpha v1\n' >"$repo/skills/alpha/SKILL.md"
 printf 'beta v1\n' >"$repo/skills/beta/SKILL.md"
+mkdir -p "$repo/skills/alpha/references"
+printf 'reference v1\n' > "$repo/skills/alpha/references/Usage Guide.md"
+printf 'newline v1\n' > "$repo/skills/alpha/references/line"$'\n'"break.md"
 git -C "$repo" add -A
 git -C "$repo" commit -q -m base
 printf 'alpha v2\n' >"$repo/skills/alpha/SKILL.md"
+printf 'reference v2\n' > "$repo/skills/alpha/references/Usage Guide.md"
+printf 'newline v2\n' > "$repo/skills/alpha/references/line"$'\n'"break.md"
 manifest="$(cd "$repo" && bash "$splitter" skills "$work/patches")"
 [[ "$(jq -r '.[0].slug' <<<"$manifest")" == "alpha" ]] || fail "unexpected manifest: ${manifest}"
 git -C "$repo" checkout -q -- .
@@ -109,6 +114,8 @@ mkdir -p "$work/runner/skill-updates"
 cp "$work/patches/alpha.patch" "$work/runner/skill-updates/alpha.patch"
 out="$(run_apply alpha skills/alpha)" || fail "the apply step refused its own skill: ${out}"
 [[ "$(cat "$repo/skills/alpha/SKILL.md")" == "alpha v2" ]] || fail "the apply step did not apply the patch"
+[[ "$(cat "$repo/skills/alpha/references/Usage Guide.md")" == 'reference v2' ]] || fail 'the apply step lost the spaced filename'
+[[ "$(cat "$repo/skills/alpha/references/line"$'\n'"break.md")" == 'newline v2' ]] || fail 'the apply step lost the newline filename'
 git -C "$repo" checkout -q -- .
 echo "ok: the apply step applies its own skill's patch"
 

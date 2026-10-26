@@ -3,7 +3,7 @@ description: Run `gh skill update --all` against installed skills and report any
 author: devantler-tech
 inputs:
   dir:
-    description: Directory to scan for installed skills (passed to `gh skill update --dir`)
+    description: Directory containing installed skill directories; must not itself contain SKILL.md
     required: false
     default: "."
   dry-run:
@@ -74,6 +74,12 @@ runs:
 
         if [ ! -d "$INPUT_DIR" ]; then
           echo "::error::Directory not found: $INPUT_DIR"
+          exit 1
+        fi
+        # Updating --all at a skill's parent would also write to siblings outside INPUT_DIR.
+        # Refuse this ambiguous scope before pinning or changing any installed skill.
+        if [ -f "$INPUT_DIR/SKILL.md" ]; then
+          echo "::error::dir contains SKILL.md; choose a directory containing skill directories instead."
           exit 1
         fi
 

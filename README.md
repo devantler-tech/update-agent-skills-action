@@ -16,6 +16,10 @@ The `github-*` frontmatter that `gh skill install` injects into each `SKILL.md` 
 | `gh-version` | Minimum required `gh` version (must support `gh skill`) | ❌ | `2.90.0` |
 | `github-token` | GitHub token exposed to `gh` as `GH_TOKEN` | ❌ | `${{ github.token }}` |
 
+Set `dir` to a directory containing skills, such as `.agents/skills`, rather than an individual
+skill directory. An input that itself contains `SKILL.md` is refused before any update or pin is
+applied, so its sibling skills cannot be changed outside the requested scope.
+
 ## Outputs
 
 | Name | Description |
