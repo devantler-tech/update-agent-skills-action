@@ -1038,4 +1038,11 @@ jobs:
         env:
           JOB_RESULTS: ${{ toJSON(needs) }}
         shell: bash
-        run: jq -e 'all(.[]; .result == "success")' <<< "$JOB_RESULTS"
+        # These two reusable calls validate the dry-run interface; the callee
+        # deliberately skips its credential-bearing jobs in that mode.
+        run: |
+          jq -e 'to_entries | all(
+            if .key == "test-update-agent-skills" or .key == "test-update-agent-skills-per-skill"
+            then (.value.result == "success" or .value.result == "skipped")
+            else .value.result == "success" end
+          )' <<< "$JOB_RESULTS"
