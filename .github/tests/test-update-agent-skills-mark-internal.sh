@@ -177,7 +177,7 @@ grep -qF '${GITHUB_ACTION_PATH}/mark-internal.sh' <<< "$update_run" ||
   fail "reusable workflow input mark-internal must be a boolean"
 [[ "$(yq -r '.on.workflow_call.inputs."mark-internal".default' "$workflow")" == "false" ]] ||
   fail "reusable workflow input mark-internal must default to false"
-forwarded=$(yq -r '.jobs."update-agent-skills".steps[] | select(.uses == "./.devantler-tech-actions") | .with."mark-internal"' "$workflow")
+forwarded=$(yq -r '.jobs."update-agent-skills".steps[] | select(.uses == "$/") | .with."mark-internal"' "$workflow")
 [[ "$forwarded" == '${{ inputs.mark-internal }}' ]] ||
   fail "reusable workflow must forward mark-internal to update-agent-skills (got: $forwarded)"
 

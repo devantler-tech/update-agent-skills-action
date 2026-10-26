@@ -263,7 +263,7 @@ workflow="$repo_root/.github/workflows/update-agent-skills.yaml"
   fail "action update step must receive pins as INPUT_PINS"
 [[ "$(yq -r '.on.workflow_call.inputs.pins.type' "$workflow")" == string ]] || fail "reusable workflow input pins must be a string"
 [[ "$(yq -r '.on.workflow_call.inputs.pins.default' "$workflow")" == "" ]] || fail "reusable workflow input pins must default to empty"
-forwarded=$(yq -r '.jobs."update-agent-skills".steps[] | select(.uses == "./.devantler-tech-actions") | .with.pins' "$workflow")
+forwarded=$(yq -r '.jobs."update-agent-skills".steps[] | select(.uses == "$/") | .with.pins' "$workflow")
 [[ "$forwarded" == '${{ inputs.pins }}' ]] || fail "reusable workflow must forward pins (got: $forwarded)"
 
 echo "pins contract: all assertions passed"

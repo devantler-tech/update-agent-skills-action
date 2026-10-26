@@ -76,7 +76,7 @@ per_skill='.jobs.open-skill-pull-requests.steps[] | select(.name == "📦 Create
 echo "ok: flag on — the update is split after the self-checkout is gone, one signed PR per skill"
 
 # ── both states instantiated in ci.yaml ──────────────────────────────────────────────────────
-callers="$(yq -r '.jobs[] | select(.uses == "./.github/workflows/update-agent-skills.yaml") | (.with."pr-per-skill" // "omitted")' "$ci" | sort -u | paste -sd, -)"
+callers="$(yq -r '.jobs[] | select(.uses == "$/.github/workflows/update-agent-skills.yaml") | (.with."pr-per-skill" // "omitted")' "$ci" | sort -u | paste -sd, -)"
 [[ "$callers" == "omitted,true" ]] ||
   fail "ci.yaml must call update-agent-skills.yaml both without pr-per-skill and with it true (found: ${callers})"
 echo "ok: ci.yaml instantiates both flag states"

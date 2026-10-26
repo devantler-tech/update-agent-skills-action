@@ -147,7 +147,7 @@ jobs:
 
       - name: 🔄 Update installed skills
         id: update
-        uses: ./.devantler-tech-actions
+        uses: $/
         with:
           dir: ${{ inputs.dir }}
           unpin: ${{ inputs.unpin }}

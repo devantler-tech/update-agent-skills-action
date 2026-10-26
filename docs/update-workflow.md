@@ -2,6 +2,8 @@
 
 ### 🔄 Update Agent Skills
 
+This reusable workflow runs on GitHub.com, using its self repository references and workflow identity contexts.
+
 <details>
 <summary>Purpose, interface and usage</summary>
 

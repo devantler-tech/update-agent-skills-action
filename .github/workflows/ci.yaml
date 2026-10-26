@@ -730,7 +730,7 @@ jobs:
             .agents/skills/self-improvement/
       - name: "\U0001F504 Run update-agent-skills (should be a no-op against a pinned skill)"
         id: update
-        uses: ./
+        uses: $/
         with:
           dir: .agents/skills
       - name: ✅ Verify pinned no-op
@@ -788,7 +788,7 @@ jobs:
         run: echo "sha=$(shasum -a 256 .agents/skills/self-improvement/SKILL.md | awk '{print $1}')" >> "$GITHUB_OUTPUT"
       - name: "\U0001F504 Run update-agent-skills with --unpin --dry-run"
         id: update
-        uses: ./
+        uses: $/
         with:
           dir: .agents/skills
           unpin: "true"
@@ -827,7 +827,7 @@ jobs:
       - name: "\U0001F504 Run update-agent-skills against a missing dir (expected to fail)"
         id: update
         continue-on-error: true
-        uses: ./
+        uses: $/
         with:
           dir: does-not-exist
       - name: ✅ Verify step failed as expected
@@ -880,7 +880,7 @@ jobs:
             .agents/skills/self-improvement/
       - name: "\U0001F504 Run update-agent-skills with mark-internal"
         id: update
-        uses: ./
+        uses: $/
         with:
           dir: .agents/skills
           mark-internal: "true"
@@ -915,7 +915,7 @@ jobs:
           fi
       - name: "\U0001F504 Run update-agent-skills with mark-internal again"
         id: again
-        uses: ./
+        uses: $/
         with:
           dir: .agents/skills
           mark-internal: "true"
@@ -945,7 +945,7 @@ jobs:
           printf 'left behind by an older install\n' >.agents/skills/self-improvement/stale.md
       - name: "\U0001F4CC Run update-agent-skills with a pin"
         id: pin
-        uses: ./
+        uses: $/
         with:
           dir: .agents/skills
           pins: |
@@ -981,7 +981,7 @@ jobs:
           fi
       - name: "\U0001F4CC Run update-agent-skills with the same pin again"
         id: pin-again
-        uses: ./
+        uses: $/
         with:
           dir: .agents/skills
           pins: .agents/skills/self-improvement 7b9904e7a2739f2ecdea621c5bc548804bddb9c2
@@ -996,7 +996,7 @@ jobs:
           fi
   test-update-agent-skills:
     name: "[Test] Update Agent Skills - Dry Run"
-    uses: ./.github/workflows/update-agent-skills.yaml
+    uses: $/.github/workflows/update-agent-skills.yaml
     permissions:
       contents: write
       pull-requests: write
@@ -1006,7 +1006,7 @@ jobs:
   # test-update-agent-skills-per-skill.sh pins both states and the per-skill job's apply step.
   test-update-agent-skills-per-skill:
     name: "[Test] Update Agent Skills - Per-Skill PRs Dry Run"
-    uses: ./.github/workflows/update-agent-skills.yaml # zizmor: ignore[self-repository]
+    uses: $/.github/workflows/update-agent-skills.yaml
     permissions:
       contents: write
       pull-requests: write
