@@ -223,11 +223,12 @@ run $'.agents/skills/git-commit '"$commit"$'\nnot-a-dir '"$commit" && fail "a ba
 [[ "$(installs)" == 0 ]] || fail "a skill was installed although a later line was invalid"
 echo "ok   validation precedes installation"
 
-# The skills directory itself is not a skill, even when it holds a SKILL.md.
+# A scan root holding SKILL.md is refused before pinning can modify any skill.
 new_skills
 cp "$skills/git-commit/SKILL.md" "$skills/SKILL.md"
 run ".agents/skills $commit" && fail "the skills directory itself was accepted as a skill"
-grep -qF "is not a skill directory under" "$work/step.log" || fail "dir itself: unexpected failure: $(cat "$work/step.log")"
+grep -qF "dir contains SKILL.md" "$work/step.log" || fail "dir itself: unexpected failure: $(cat "$work/step.log")"
+[[ "$(installs)" == 0 ]] || fail "the unsafe scan root reached skill installation"
 echo "ok   refused: dir itself"
 
 # A retried install starts from an empty staging directory, so a failed attempt leaves nothing behind.
