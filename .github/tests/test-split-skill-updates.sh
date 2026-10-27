@@ -28,6 +28,27 @@ skill() {
   printf -- '---\nname: %s\n---\n%s\n' "${2##*/}" "$3" >"$1/$2/SKILL.md"
 }
 
+# Reproduce a coarse-timestamp checkout where Git must use its index timestamp to
+# detect a same-size edit. Copying the index with a newer mtime defeats that safeguard.
+racy="$work/racy"
+git init -q -b main "$racy"
+git -C "$racy" config user.name Fixture
+git -C "$racy" config user.email fixture@example.invalid
+git -C "$racy" config commit.gpgsign false
+git -C "$racy" config core.trustctime false
+git -C "$racy" config core.checkstat minimal
+skill "$racy" skills/demo 'demo v1'
+touch -t 200101010101 "$work/racy-stamp"
+touch -r "$work/racy-stamp" "$racy/skills/demo/SKILL.md"
+git -C "$racy" add skills/demo/SKILL.md
+git -C "$racy" commit -qm base
+touch -r "$work/racy-stamp" "$racy/.git/index"
+skill "$racy" skills/demo 'demo v2'
+touch -r "$work/racy-stamp" "$racy/skills/demo/SKILL.md"
+manifest="$(cd "$racy" && bash "$splitter" skills "$work/out-racy")" || fail 'racy-index fixture failed'
+[[ "$(jq -c . <<< "$manifest")" == '[{"slug":"demo","path":"skills/demo"}]' ]] || fail "a same-size edit disappeared from the patch: $manifest"
+echo 'ok: a same-size edit survives coarse stat timestamps in the copied index'
+
 repo="$work/repo"
 git init -q -b main "$repo"
 git -C "$repo" config user.name "Test User"

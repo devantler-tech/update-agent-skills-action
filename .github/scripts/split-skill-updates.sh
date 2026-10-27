@@ -37,7 +37,9 @@ work="$(mktemp -d)" || fail "could not create a work directory"
 trap 'rm -rf "$work"' EXIT
 real_index="$(git rev-parse --git-path index)" || fail "not inside a git checkout"
 if [[ -f "$real_index" ]]; then
-  cp "$real_index" "$work/index" || fail "could not copy the index"
+  # Git uses the index mtime to detect racily clean, same-size edits. A fresh timestamp
+  # would make that stat cache falsely authoritative on coarse-timestamp filesystems.
+  cp -p "$real_index" "$work/index" || fail "could not copy the index"
 fi
 export GIT_INDEX_FILE="$work/index"
 
