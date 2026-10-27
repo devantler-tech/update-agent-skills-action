@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 # Bind updater authority to reviewed main and prove complete, manifest-only preparation.
+# Exact external action pins are reviewed credential-boundary implementations, not just syntax.
+# A dependency bump intentionally updates this contract and its workflow together after review.
 set -euo pipefail
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 work="$(mktemp -d)"

@@ -1,14 +1,11 @@
 #!/usr/bin/env bash
-# Shared gh bootstrap for the agent-skills composite actions.
+# GitHub CLI bootstrap bundled by each standalone agent-skills action.
 #
 # Ensures a `gh` CLI that exposes the `gh skill` command is on PATH, installing a
-# pinned cli/cli release when the runner's gh is missing or too old. Invoked by both
-# actions/setup-agent-skills/ and actions/update-agent-skills/ via
-#   bash "${GITHUB_ACTION_PATH}/../../.scripts/ensure-gh-skill.sh"
-# so the logic lives in one place — composite actions cannot share steps directly,
-# but they can share a script bundled in the same repository (resolved relative to
-# ${GITHUB_ACTION_PATH}, which works for both local `uses: ./<action>` callers and
-# external `uses: devantler-tech/.github/actions/<action>@<ref>` consumers).
+# pinned cli/cli release when the runner's gh is missing or too old. Each repository
+# owns its copy and invokes it via
+#   bash "${GITHUB_ACTION_PATH}/.scripts/ensure-gh-skill.sh"
+# for local action callers and external `devantler-tech/<action>-action@<ref>` consumers.
 #
 # Required environment:
 #   REQUIRED          minimum gh version to guarantee (e.g. 2.81.0)
