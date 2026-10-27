@@ -31,8 +31,7 @@ check_boundary() {
       with:{ref:"${{ github.workflow_sha }}","persist-credentials":false}}]) and
     ([$steps[]|select(.id=="prepare")|{run,if:(.if//null),tolerate:(."continue-on-error"//false)}] == [{
       run:"bash .github/scripts/prepare-gh-digest-update.sh",if:null,tolerate:false}]) and
-    ([$steps|to_entries[]|select(.value.id=="prepare")|.key][0] <
-     [$steps|to_entries[]|select(.value.id=="app-token")|.key][0]) and
+    ([$steps[].id] == [null,"source","prepare","app-token","pr"]) and
     ([$steps[]|select(.id=="app-token")|{uses,if,with}] == [{
       uses:"actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510",
       if:"${{ steps.prepare.outputs.changed == '\''true'\'' }}",
@@ -52,7 +51,7 @@ check_boundary() {
   ' >/dev/null
 }
 check_boundary "$workflow" || fail 'updater source/credential/PR boundary is unsafe'
-for mutation in hardening-source admission token-scope persisted source signing draft ready-on-update paths write-token early-token tolerated fallback ambient-secret early-secret; do
+for mutation in hardening-source admission token-scope persisted source signing draft ready-on-update paths write-token early-token early-prepare early-pr tolerated fallback ambient-secret early-secret; do
   cp "$workflow" "$work/mutated.yaml"
   # shellcheck disable=SC2016 # Literal GitHub expressions in boundary controls.
   case "$mutation" in
@@ -67,6 +66,8 @@ for mutation in hardening-source admission token-scope persisted source signing 
     paths) yq -i '(.jobs.refresh.steps[]|select(.id=="pr")).with."add-paths" = "."' "$work/mutated.yaml" ;;
     write-token) yq -i '.jobs.refresh.permissions.contents = "write"' "$work/mutated.yaml" ;;
     early-token) yq -i '.jobs.refresh.steps |= sort_by(.id == "prepare")' "$work/mutated.yaml" ;;
+    early-prepare) yq -i '.jobs.refresh.steps[1] as $old | .jobs.refresh.steps[1] = .jobs.refresh.steps[2] | .jobs.refresh.steps[2] = $old' "$work/mutated.yaml" ;;
+    early-pr) yq -i '.jobs.refresh.steps[3] as $old | .jobs.refresh.steps[3] = .jobs.refresh.steps[4] | .jobs.refresh.steps[4] = $old' "$work/mutated.yaml" ;;
     tolerated) yq -i '(.jobs.refresh.steps[]|select(.id=="prepare"))."continue-on-error" = true' "$work/mutated.yaml" ;;
     fallback) yq -i '(.jobs.refresh.steps[]|select(.id=="pr")).with.token = "${{ github.token }}"' "$work/mutated.yaml" ;;
     ambient-secret) yq -i '.env.APP_KEY = "${{ secrets.APP_PRIVATE_KEY }}"' "$work/mutated.yaml" ;;

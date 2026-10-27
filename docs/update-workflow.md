@@ -31,6 +31,24 @@ jobs:
 
 The workflow assumes skills were previously installed with [`devantler-tech/setup-agent-skills-action`](https://github.com/devantler-tech/setup-agent-skills-action) (or `gh skill install` directly) — the committed `SKILL.md` files carry the upstream pointers.
 
+With the default `GITHUB_TOKEN`, enable **Allow GitHub Actions to create and approve pull requests** in the repository's [Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository). Job permissions alone do not enable it.
+
+To use a GitHub App instead, configure the caller's `APP_CLIENT_ID` variable and forward its private-key secret explicitly:
+
+```yaml
+jobs:
+  update-agent-skills:
+    uses: devantler-tech/update-agent-skills-action/.github/workflows/update-agent-skills.yaml@<full-commit-sha> # vX.Y.Z
+    permissions:
+      contents: write
+      pull-requests: write
+    with:
+      dir: .agents/skills
+      use-app-token: true
+    secrets:
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+```
+
 #### Secrets and Inputs
 
 | Key              | Type            | Default                              | Required | Description                                                            |

@@ -21,7 +21,8 @@
 #
 # Stdout contains only the successful attempt, with its bytes preserved. Each
 # attempt is buffered so a partial failed response cannot contaminate a later
-# successful JSON or state read. Command stderr remains visible immediately.
+# successful JSON or state read. Failed-attempt stdout is forwarded to stderr
+# for diagnostics. Command stderr remains visible immediately.
 # Exit status: 0 on the first success; otherwise the failing command's last exit
 # status after RETRY_MAX_ATTEMPTS attempts, so a genuine failure still reds the
 # check. (No `set -e`: command failure is handled explicitly, not fatally.)
@@ -100,6 +101,11 @@ while true; do
     command_pid=''
     exit "$status"
   fi
+  launch_owned false cat "$attempt_stdout" >&2
+  wait "$command_pid"
+  forward_status=$?
+  command_pid=''
+  [ "$forward_status" -eq 0 ] || exit "$forward_status"
   if [ "$attempt" -ge "$max_attempts" ]; then
     echo "::error::'$*' failed after ${max_attempts} attempt(s) (last exit ${status})" >&2
     exit "$status"

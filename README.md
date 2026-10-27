@@ -25,11 +25,13 @@ applied, so its sibling skills cannot be changed outside the requested scope.
 | Name | Description |
 |------|-------------|
 | `changed` | `true` when any file in an installed skill's directory (the directory holding its `SKILL.md`) was added, removed or modified — content, executable bit or symlink target — so an update that touches only a bundled script, reference or template still counts; `false` otherwise |
-| `updated-skills` | Cleaned stdout from `gh skill update --all` (blank when nothing changed) |
+| `updated-skills` | Cleaned stdout from `gh skill update --all`, or `No installed skills found.` for an empty scan. Use `changed` to detect changes. |
 
 ## Usage
 
 ### Scheduled update PR
+
+When using `GITHUB_TOKEN` to open the pull request, enable **Allow GitHub Actions to create and approve pull requests** in the repository's [Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository). The job permissions below do not enable that repository setting.
 
 ```yaml
 name: 🔄 Update Agent Skills

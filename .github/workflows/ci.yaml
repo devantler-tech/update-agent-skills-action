@@ -44,14 +44,26 @@ jobs:
           n=\$(cat "$counter")
           n=\$((n + 1))
           printf '%s' "\$n" > "$counter"
-          [ "\$n" -ge 3 ]
+          if [ "\$n" -lt 3 ]; then
+            echo "partial attempt \$n"
+            exit 7
+          fi
+          echo successful-result
           EOF
           chmod +x "$flaky"
-          RETRY_MAX_ATTEMPTS=3 bash "$retry" "$flaky"
+          stdout="$(mktemp)"
+          stderr="$(mktemp)"
+          RETRY_MAX_ATTEMPTS=3 bash "$retry" "$flaky" >"$stdout" 2>"$stderr"
           attempts="$(cat "$counter")"
           if [ "$attempts" -ne 3 ]; then
             echo "::error::expected 3 attempts before success, got $attempts"; exit 1
           fi
+          grep -Fxq successful-result "$stdout" &&
+            [ "$(wc -l <"$stdout" | tr -d ' ')" -eq 1 ] &&
+            grep -Fxq 'partial attempt 1' "$stderr" &&
+            grep -Fxq 'partial attempt 2' "$stderr" || {
+              echo '::error::retry lost failed-attempt diagnostics or contaminated the successful result'; exit 1;
+            }
           echo "✅ retry-then-succeed: succeeded on attempt 3 as expected"
 
           # 3. Always fails → exits non-zero with the command's status after N attempts.
@@ -63,6 +75,14 @@ jobs:
             echo "::error::expected non-zero exit after exhausting attempts, got 0"; exit 1
           fi
           echo "✅ exhaust-and-fail: non-zero exit ($status) as expected"
+
+          set +e
+          RETRY_MAX_ATTEMPTS=1 bash "$retry" bash -c 'echo terminal-diagnostic; exit 7' >"$stdout" 2>"$stderr"
+          status=$?
+          set -e
+          [ "$status" -eq 7 ] && [ ! -s "$stdout" ] && grep -Fxq terminal-diagnostic "$stderr" || {
+            echo '::error::exhausted retry lost its status or terminal diagnostic'; exit 1;
+          }
 
           # 4. No command given → usage error (exit 2).
           set +e
@@ -100,7 +120,7 @@ jobs:
           rm -rf "$fakebin"
           rm -f "$sleeplog"
 
-          rm -f "$counter" "$flaky"
+          rm -f "$counter" "$flaky" "$stdout" "$stderr"
   # ── .scripts/ensure-gh-skill.sh (shared gh-skill bootstrap) ─
   test-ensure-gh-skill-script:
     timeout-minutes: 5
