@@ -3,12 +3,19 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      dry-run:
+        description: Preview release recovery without publishing
+        type: boolean
+        default: false
 permissions: {}
 jobs:
   release:
-    uses: devantler-tech/.github/.github/workflows/create-release.yaml@f5d078cc4b04ecb15432ed4e34cba1142a6279d4 # v13.2.15
+    uses: devantler-tech/.github/.github/workflows/create-release.yaml@7c26a9eabe6de53c888ea675365d4fd574baa887 # reviewed candidate; released pin required before merge
     with:
+      dry-run: ${{ inputs.dry-run || false }}
       disable-issue-side-effects: true
       warn-missing-breaking-bang: true
+      protected-release: true
     secrets:
-      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}

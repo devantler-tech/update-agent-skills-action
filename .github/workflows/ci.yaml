@@ -143,6 +143,8 @@ jobs:
         run: bash .github/tests/test-gh-version-observation.sh
       - name: Verify reviewed digest updater boundaries
         run: bash .github/tests/test-gh-digest-updater.sh
+      - name: Verify protected release credentials
+        run: bash .github/tests/test-protected-release.sh
       - name: "\U0001F512 Prepare real release digests without write authority"
         id: digest-candidate
         run: |

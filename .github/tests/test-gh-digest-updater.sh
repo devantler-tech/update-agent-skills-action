@@ -17,7 +17,8 @@ check_boundary() {
     .permissions == {} and (.on | keys | sort) == ["schedule", "workflow_dispatch"] and
     .on.workflow_dispatch == null and .on.schedule == [{cron:"17 4 * * 1"}] and
     (.jobs | keys) == ["refresh"] and
-    ($job | keys | sort) == ["concurrency","if","permissions","runs-on","steps","timeout-minutes"] and
+    ($job | keys | sort) == ["concurrency","environment","if","permissions","runs-on","steps","timeout-minutes"] and
+    $job.environment == "release" and
     $job."runs-on" == "ubuntu-latest" and $job."timeout-minutes" == 10 and
     $job.if == $admission and $job.permissions == {contents:"read"} and
     $job.concurrency == {group:"refresh-gh-digests",queue:"max","cancel-in-progress":false} and
@@ -35,7 +36,7 @@ check_boundary() {
     ([$steps[]|select(.id=="app-token")|{uses,if,with}] == [{
       uses:"actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510",
       if:"${{ steps.prepare.outputs.changed == '\''true'\'' }}",
-      with:{"client-id":"${{ vars.APP_CLIENT_ID }}","private-key":"${{ secrets.APP_PRIVATE_KEY }}",
+      with:{"client-id":"${{ vars.RELEASE_APP_CLIENT_ID }}","private-key":"${{ secrets.RELEASE_APP_PRIVATE_KEY }}",
         owner:"devantler-tech",repositories:"update-agent-skills-action","permission-contents":"write","permission-pull-requests":"write"}}]) and
     ([$steps[]|select(.id=="pr")][0] as $pr |
       $pr.uses == "peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1" and
@@ -51,10 +52,12 @@ check_boundary() {
   ' >/dev/null
 }
 check_boundary "$workflow" || fail 'updater source/credential/PR boundary is unsafe'
-for mutation in hardening-source admission token-scope persisted source signing draft ready-on-update paths write-token early-token early-prepare early-pr tolerated fallback ambient-secret early-secret; do
+for mutation in environment legacy-key hardening-source admission token-scope persisted source signing draft ready-on-update paths write-token early-token early-prepare early-pr tolerated fallback ambient-secret early-secret; do
   cp "$workflow" "$work/mutated.yaml"
   # shellcheck disable=SC2016 # Literal GitHub expressions in boundary controls.
   case "$mutation" in
+    environment) yq -i 'del(.jobs.refresh.environment)' "$work/mutated.yaml" ;;
+    legacy-key) yq -i '(.jobs.refresh.steps[]|select(.id=="app-token")).with."private-key" = "${{ secrets.APP_PRIVATE_KEY }}"' "$work/mutated.yaml" ;;
     hardening-source) yq -i '.jobs.refresh.steps[0].uses = "step-security/harden-runner@main"' "$work/mutated.yaml" ;;
     admission) yq -i '.jobs.refresh.if = true' "$work/mutated.yaml" ;;
     token-scope) yq -i '(.jobs.refresh.steps[]|select(.id=="app-token")).with.repositories = "ksail"' "$work/mutated.yaml" ;;
