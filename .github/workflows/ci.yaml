@@ -762,7 +762,7 @@ jobs:
           UPDATED: ${{ steps.update.outputs.updated-skills }}
         run: |
           set -euo pipefail
-          expected_ref="7b9904e7a2739f2ecdea621c5bc548804bddb9c2"
+          expected_ref="dc62d7fc09d62602d45da43e31cb1c3998bf05c5"
           if [[ "$CHANGED" != "false" ]]; then
             echo "::error::Expected changed=false when all skills are pinned, got: $CHANGED"
             echo "updated-skills output: $UPDATED"
@@ -972,7 +972,7 @@ jobs:
           dir: .agents/skills
           pins: |
             # The reviewed commit the fixture records.
-            .agents/skills/self-improvement 7b9904e7a2739f2ecdea621c5bc548804bddb9c2
+            .agents/skills/self-improvement dc62d7fc09d62602d45da43e31cb1c3998bf05c5
       - name: ✅ Verify the skill is held at the pinned commit
         shell: bash
         env:
@@ -980,7 +980,7 @@ jobs:
           UPDATED: ${{ steps.pin.outputs.updated-skills }}
         run: |
           set -euo pipefail
-          expected_ref="7b9904e7a2739f2ecdea621c5bc548804bddb9c2"
+          expected_ref="dc62d7fc09d62602d45da43e31cb1c3998bf05c5"
           if [[ "$CHANGED" != "true" ]]; then
             echo "::error::Expected changed=true when a pin replaced the skill, got: $CHANGED"
             exit 1
@@ -1006,7 +1006,7 @@ jobs:
         uses: $/
         with:
           dir: .agents/skills
-          pins: .agents/skills/self-improvement 7b9904e7a2739f2ecdea621c5bc548804bddb9c2
+          pins: .agents/skills/self-improvement dc62d7fc09d62602d45da43e31cb1c3998bf05c5
       - name: ✅ Verify the repeated pin is a no-op
         shell: bash
         env:
