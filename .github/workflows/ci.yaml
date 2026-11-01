@@ -827,7 +827,7 @@ jobs:
             echo "::error::SKILL.md was modified despite --dry-run (before=$BEFORE after=$after)"
             exit 1
           fi
-          if [[ "$UPDATED" != *"update(s) available"* || "$UPDATED" != *"self-improvement (devantler-tech/agent-skills)"* ]]; then
+          if [[ "$UPDATED" != *"update(s) available"* || "$UPDATED" != *"self-improvement (devantler-tech/agent-plugins)"* ]]; then
             echo "::error::Expected --unpin --dry-run to report the stale self-improvement fixture"
             echo "updated-skills output: $UPDATED"
             exit 1

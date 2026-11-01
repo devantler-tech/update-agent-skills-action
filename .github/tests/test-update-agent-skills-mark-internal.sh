@@ -70,7 +70,7 @@ cat >"$root/tagged/SKILL.md" <<'EOF'
 name: tagged
 description:   Already internal.
 metadata:
-    github-repo: https://github.com/devantler-tech/agent-skills
+    github-repo: https://github.com/devantler-tech/agent-plugins
     internal: true
 ---
 # Tagged
