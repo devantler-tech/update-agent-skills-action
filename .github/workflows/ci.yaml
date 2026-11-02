@@ -748,7 +748,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p .agents/skills/self-improvement
-          cp -R .github/tests/agent-skills-fixtures/pinned-self-improvement/. \
+          cp -R .github/tests/skill-fixtures/pinned-self-improvement/. \
             .agents/skills/self-improvement/
       - name: "\U0001F504 Run update-agent-skills (should be a no-op against a pinned skill)"
         id: update
@@ -802,7 +802,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p .agents/skills/self-improvement
-          cp -R .github/tests/agent-skills-fixtures/pinned-self-improvement/. \
+          cp -R .github/tests/skill-fixtures/pinned-self-improvement/. \
             .agents/skills/self-improvement/
       - name: "\U0001F522 Snapshot SKILL.md hash before"
         id: before
@@ -915,7 +915,7 @@ jobs:
         shell: bash
         run: |
           mkdir -p .agents/skills/self-improvement
-          cp -R .github/tests/agent-skills-fixtures/pinned-self-improvement/. \
+          cp -R .github/tests/skill-fixtures/pinned-self-improvement/. \
             .agents/skills/self-improvement/
       - name: "\U0001F504 Run update-agent-skills with mark-internal"
         id: update
@@ -931,7 +931,7 @@ jobs:
         run: |
           set -euo pipefail
           skill=.agents/skills/self-improvement/SKILL.md
-          fixture=.github/tests/agent-skills-fixtures/pinned-self-improvement/SKILL.md
+          fixture=.github/tests/skill-fixtures/pinned-self-improvement/SKILL.md
           if [[ "$CHANGED" != "true" ]]; then
             echo "::error::Expected changed=true when mark-internal tagged a skill, got: $CHANGED"
             exit 1
@@ -977,7 +977,7 @@ jobs:
           set -euo pipefail
           rm -rf .agents/skills/self-improvement
           mkdir -p .agents/skills/self-improvement
-          cp -R .github/tests/agent-skills-fixtures/pinned-self-improvement/. \
+          cp -R .github/tests/skill-fixtures/pinned-self-improvement/. \
             .agents/skills/self-improvement/
           sed -i.bak '/^    github-pinned: /d' .agents/skills/self-improvement/SKILL.md
           rm .agents/skills/self-improvement/SKILL.md.bak
@@ -1002,11 +1002,15 @@ jobs:
             echo "::error::Expected changed=true when a pin replaced the skill, got: $CHANGED"
             exit 1
           fi
-          # The real CLI reinstalled exactly the reviewed fixture: same content, pin recorded.
-          if ! cmp .github/tests/agent-skills-fixtures/pinned-self-improvement/SKILL.md \
+          # The real CLI restores the exact reviewed manifest and records its pin.
+          if ! cmp .github/tests/skill-fixtures/pinned-self-improvement/SKILL.md \
             .agents/skills/self-improvement/SKILL.md; then
-            /usr/bin/diff .github/tests/agent-skills-fixtures/pinned-self-improvement/SKILL.md \
+            /usr/bin/diff .github/tests/skill-fixtures/pinned-self-improvement/SKILL.md \
               .agents/skills/self-improvement/SKILL.md || true
+            exit 1
+          fi
+          if [[ ! -f .agents/skills/self-improvement/references/replacement-evaluation.md ]]; then
+            echo "::error::The native pin did not restore the skill's ancillary resources"
             exit 1
           fi
           if [[ -e .agents/skills/self-improvement/stale.md ]]; then
