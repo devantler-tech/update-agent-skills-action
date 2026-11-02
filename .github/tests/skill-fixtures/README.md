@@ -8,5 +8,5 @@ Its recorded repository is the maintained plugin publisher.
 This is deliberately a manifest-only fixture, not a complete installed skill.
 The tests exercise pin observation, dry-run updates, internal marking and native
 pin restoration. Unused ancillary resource copies are omitted; the native pin
-test obtains the actual source tree from the recorded publisher and verifies
-that a stale local file is removed.
+test obtains the actual source tree from the recorded publisher, checks that
+ancillary resources are restored, and verifies that a stale local file is removed.

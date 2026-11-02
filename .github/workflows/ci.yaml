@@ -1002,11 +1002,15 @@ jobs:
             echo "::error::Expected changed=true when a pin replaced the skill, got: $CHANGED"
             exit 1
           fi
-          # The real CLI reinstalled exactly the reviewed fixture: same content, pin recorded.
+          # The real CLI restores the exact reviewed manifest and records its pin.
           if ! cmp .github/tests/skill-fixtures/pinned-self-improvement/SKILL.md \
             .agents/skills/self-improvement/SKILL.md; then
             /usr/bin/diff .github/tests/skill-fixtures/pinned-self-improvement/SKILL.md \
               .agents/skills/self-improvement/SKILL.md || true
+            exit 1
+          fi
+          if [[ ! -f .agents/skills/self-improvement/references/replacement-evaluation.md ]]; then
+            echo "::error::The native pin did not restore the skill's ancillary resources"
             exit 1
           fi
           if [[ -e .agents/skills/self-improvement/stale.md ]]; then
