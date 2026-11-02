@@ -7,7 +7,7 @@ set -euo pipefail
 
 repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 script="$repo_root/./mark-internal.sh"
-fixture="$repo_root/.github/tests/agent-skills-fixtures/pinned-self-improvement/SKILL.md"
+fixture="$repo_root/.github/tests/skill-fixtures/pinned-self-improvement/SKILL.md"
 
 fail() {
   echo "::error::$*"
