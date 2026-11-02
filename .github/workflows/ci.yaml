@@ -762,7 +762,7 @@ jobs:
           UPDATED: ${{ steps.update.outputs.updated-skills }}
         run: |
           set -euo pipefail
-          expected_ref="dc62d7fc09d62602d45da43e31cb1c3998bf05c5"
+          expected_ref="72f0f4c6a01e6a4ae59ec5297940dd309641de31"
           if [[ "$CHANGED" != "false" ]]; then
             echo "::error::Expected changed=false when all skills are pinned, got: $CHANGED"
             echo "updated-skills output: $UPDATED"
@@ -820,6 +820,7 @@ jobs:
         env:
           BEFORE: ${{ steps.before.outputs.sha }}
           UPDATED: ${{ steps.update.outputs.updated-skills }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           after=$(shasum -a 256 .agents/skills/self-improvement/SKILL.md | awk '{print $1}')
@@ -827,7 +828,23 @@ jobs:
             echo "::error::SKILL.md was modified despite --dry-run (before=$BEFORE after=$after)"
             exit 1
           fi
-          if [[ "$UPDATED" != *"update(s) available"* || "$UPDATED" != *"self-improvement (devantler-tech/agent-plugins)"* ]]; then
+          # A different tree can be a rollback. Bind the CLI target to a newer release.
+          target_ref=$(gh api repos/devantler-tech/agent-plugins/releases/latest --jq .tag_name)
+          [[ "$target_ref" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
+          target_commit=$(gh api "repos/devantler-tech/agent-plugins/commits/$target_ref" --jq .sha)
+          [[ "$target_commit" =~ ^[0-9a-f]{40}$ ]] || exit 1
+          comparison=$(gh api "repos/devantler-tech/agent-plugins/compare/72f0f4c6a01e6a4ae59ec5297940dd309641de31...$target_commit" --jq '{status,ahead_by}')
+          jq -e '.status == "ahead" and .ahead_by > 0' <<< "$comparison" > /dev/null || {
+            echo "::error::Latest marketplace release is not newer than the pinned fixture"
+            exit 1
+          }
+          target_inventory=$(gh api "repos/devantler-tech/agent-plugins/git/trees/$target_commit?recursive=true")
+          target_tree=$(jq -er '
+            select(.truncated == false) | [.tree[] |
+              select(.path == "plugins/agentic-engineering/skills/self-improvement" and .type == "tree") | .sha] |
+            select(length == 1) | .[0] | select(test("^[0-9a-f]{40}$"))
+          ' <<< "$target_inventory")
+          if [[ "$UPDATED" != *"update(s) available"* || "$UPDATED" != *"self-improvement (devantler-tech/agent-plugins)"* || "$UPDATED" != *"> ${target_tree:0:8} [$target_ref]"* ]]; then
             echo "::error::Expected --unpin --dry-run to report the stale self-improvement fixture"
             echo "updated-skills output: $UPDATED"
             exit 1
@@ -972,7 +989,7 @@ jobs:
           dir: .agents/skills
           pins: |
             # The reviewed commit the fixture records.
-            .agents/skills/self-improvement dc62d7fc09d62602d45da43e31cb1c3998bf05c5
+            .agents/skills/self-improvement 72f0f4c6a01e6a4ae59ec5297940dd309641de31
       - name: ✅ Verify the skill is held at the pinned commit
         shell: bash
         env:
@@ -980,7 +997,7 @@ jobs:
           UPDATED: ${{ steps.pin.outputs.updated-skills }}
         run: |
           set -euo pipefail
-          expected_ref="dc62d7fc09d62602d45da43e31cb1c3998bf05c5"
+          expected_ref="72f0f4c6a01e6a4ae59ec5297940dd309641de31"
           if [[ "$CHANGED" != "true" ]]; then
             echo "::error::Expected changed=true when a pin replaced the skill, got: $CHANGED"
             exit 1
@@ -1006,7 +1023,7 @@ jobs:
         uses: $/
         with:
           dir: .agents/skills
-          pins: .agents/skills/self-improvement dc62d7fc09d62602d45da43e31cb1c3998bf05c5
+          pins: .agents/skills/self-improvement 72f0f4c6a01e6a4ae59ec5297940dd309641de31
       - name: ✅ Verify the repeated pin is a no-op
         shell: bash
         env:
