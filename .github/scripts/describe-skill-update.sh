@@ -101,10 +101,14 @@ new_path="$(field "$work/new.md" github-path valid_path)"
 new_tree="$(field "$work/new.md" github-tree-sha valid_sha)"
 new_ref="$(field "$work/new.md" github-ref valid_ref)"
 
+# The source of this update is the new copy. Only a removed skill falls back to its old source; an
+# invalid new field stays unknown rather than borrowing the previous source's value.
 repo="$new_repo"
 path="$new_path"
-[[ -n "$repo" ]] || repo="$old_repo"
-[[ -n "$path" ]] || path="$old_path"
+if [[ ! -s "$work/new.md" ]]; then
+  repo="$old_repo"
+  path="$old_path"
+fi
 same_source=true
 if [[ "$old_repo" != "$new_repo" || "$old_path" != "$new_path" ]]; then
   same_source=false
@@ -206,13 +210,19 @@ if [[ -n "$owner" && -n "$path" ]]; then
   fi
 fi
 
-# holder <tree> <path> <tip...>: the newest commit, on the first tip whose path history has it, whose
-# <path> is <tree>. Prints nothing when none is found within the bound.
+# holder <tree> <path> <tip...>: the commit that holds <tree> at <path>. A tip that holds it
+# is that commit itself, so a pinned tag whose own commit changed only the licence is read at the tag;
+# otherwise the newest commit in the path's history, on the first tip that has one. Prints nothing
+# when none is found within the bound.
 holder() {
   local tree="$1" p="$2" tip commit
   shift 2
   for tip in "$@"; do
-    upstream_git rev-parse -q --verify "$tip^{commit}" >/dev/null 2>&1 || continue
+    commit="$(upstream_git rev-parse -q --verify "$tip^{commit}" 2>/dev/null)" || continue
+    if [[ "$(upstream_git rev-parse -q --verify "$commit:$p" 2>/dev/null)" == "$tree" ]]; then
+      printf '%s\n' "$commit"
+      return 0
+    fi
     while IFS= read -r commit; do
       if [[ "$(upstream_git rev-parse -q --verify "$commit:$p" 2>/dev/null)" == "$tree" ]]; then
         printf '%s\n' "$commit"
@@ -226,7 +236,7 @@ holder() {
 if $fetched; then
   tips=(refs/describe/new refs/describe/old)
   [[ -z "$new_tree" ]] || new_commit="$(holder "$new_tree" "$new_path" "${tips[@]}")"
-  [[ -z "$old_tree" ]] || old_commit="$(holder "$old_tree" "$old_path" "${tips[@]}")"
+  [[ -z "$old_tree" ]] || old_commit="$(holder "$old_tree" "$old_path" refs/describe/old refs/describe/new)"
 fi
 
 # ── the range ────────────────────────────────────────────────────────────────────────────────

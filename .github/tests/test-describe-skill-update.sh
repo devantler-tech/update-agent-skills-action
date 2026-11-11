@@ -104,8 +104,8 @@ active() { printf '{"full_name":"acme/skills","archived":false}\n' >"$GH_STUB/re
 
 # ── the caller: one skill moved from <old tree> to <new tree> ────────────────────────────────
 skill_md() { # <tree> [repo] [path]
-  printf -- '---\nname: demo\nmetadata:\n    github-path: %s\n    github-ref: refs/heads/main\n    github-repo: %s\n    github-tree-sha: %s\n---\nbody\n' \
-    "${3:-skills/demo}" "${2:-https://github.com/acme/skills}" "$1"
+  printf -- '---\nname: demo\nmetadata:\n    github-path: %s\n    github-ref: %s\n    github-repo: %s\n    github-tree-sha: %s\n---\nbody\n' \
+    "${3:-skills/demo}" "${REF:-refs/heads/main}" "${2:-https://github.com/acme/skills}" "$1"
 }
 caller="$work/caller"
 describe_update() { # <old tree> <new tree> [new repo]: prints the body
@@ -115,10 +115,10 @@ describe_update() { # <old tree> <new tree> [new repo]: prints the body
   git -C "$caller" config user.email "caller@example.com"
   git -C "$caller" config commit.gpgsign false
   mkdir -p "$caller/plugins/p/skills/demo"
-  skill_md "$1" >"$caller/plugins/p/skills/demo/SKILL.md"
+  REF="${OLD_REF:-}" skill_md "$1" >"$caller/plugins/p/skills/demo/SKILL.md"
   git -C "$caller" add -A
   git -C "$caller" commit -q -m base
-  skill_md "$2" "${3:-}" >"$caller/plugins/p/skills/demo/SKILL.md"
+  REF="${NEW_REF:-}" skill_md "$2" "${3:-}" >"$caller/plugins/p/skills/demo/SKILL.md"
   (cd "$caller" && bash "$describe" plugins/p/skills/demo)
 }
 has() { grep -qF -- "$2" <<<"$1" || fail "$3: expected '$2' in:"$'\n'"$1"; }
@@ -219,9 +219,28 @@ mv "$work/forge/acme/gone.git" "$work/forge/acme/skills.git"
 active
 body="$(describe_update "$t1" "$t4" 'https://github.com/acme/skills`](https://evil)')"
 lacks "$body" "evil" "invalid repository metadata"
+has "$body" "| Repository | unknown |" "an invalid new repository is not replaced by the previous one"
 has "$body" "| Previous source |" "a changed source"
 has "$(warning_block "$body")" "the skill's upstream source changed" "a changed source warning"
 echo "ok: an unreadable forge, an unfetchable upstream and invalid metadata are stated as unknown"
+
+# ── pinned tags: the old tag's own commit changed only the licence ───────────────────────────
+printf 'Apache License 2.0\n' >"$src/LICENSE"
+c_tag1="$(commit "chore: relicense to Apache")"
+git -C "$src" tag v1
+printf 'MIT License\n' >"$src/LICENSE"
+printf -- '---\nname: demo\n---\nv6\n' >"$src/skills/demo/SKILL.md"
+c_tag2="$(commit "feat(demo): v6 under MIT")"
+git -C "$src" tag v2
+licence "$c_tag1" Apache-2.0
+licence "$c_tag2" MIT
+git -C "$work/forge/acme/skills.git" fetch -q "$src" '+refs/heads/main:refs/heads/main' '+refs/tags/*:refs/tags/*'
+body="$(OLD_REF=refs/tags/v1 NEW_REF=refs/tags/v2 describe_update "$t8" "$(tree_of "$c_tag2")")"
+has "$body" "| Old tree | \`$t8\` in [\`${c_tag1:0:12}\`]" "the old tag's own commit"
+has "$body" "| Licence at the old commit | Apache-2.0;" "the licence at the old tag"
+has "$(warning_block "$body")" "The upstream licence changed" "a licence changed between two tags"
+has "$body" "| Commits touching the path | 1 |" "the tag range"
+echo "ok: a pinned tag is read at its own commit, so a licence-only tag commit is not missed"
 
 # ── the size cap ─────────────────────────────────────────────────────────────────────────────
 for i in $(seq 1 45); do
@@ -231,7 +250,7 @@ done
 c_last="$(git -C "$src" rev-parse HEAD)"
 licence "$c_last" MIT
 git -C "$work/forge/acme/skills.git" fetch -q "$src" '+refs/heads/main:refs/heads/main'
-body="$(describe_update "$t8" "$(tree_of "$c_last")")"
+body="$(describe_update "$(tree_of "$c_tag2")" "$(tree_of "$c_last")")"
 (($(printf '%s' "$body" | wc -c) < 60000)) || fail "the body is not bounded: $(printf '%s' "$body" | wc -c) bytes"
 has "$body" "| Commits touching the path | 45 |" "the full count"
 has "$body" "And 15 more; see the compare link." "the remainder note"
