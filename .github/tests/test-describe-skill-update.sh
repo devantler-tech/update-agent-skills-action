@@ -89,6 +89,7 @@ case "$2" in
     cat "$GH_STUB/repo.json" ;;
   repos/acme/skills/license\?ref=*)
     ref="${2#*ref=}"
+    [[ ! -f "$GH_STUB/license-$ref.fail" ]] || { echo "gh: Server Error (HTTP 502)" >&2; exit 1; }
     if [[ -f "$GH_STUB/license-$ref.json" ]]; then cat "$GH_STUB/license-$ref.json"
     else echo "gh: Not Found (HTTP 404)" >&2; exit 1; fi ;;
   *) echo "gh: Not Found (HTTP 404)" >&2; exit 1 ;;
@@ -118,7 +119,7 @@ describe_update() { # <old tree> <new tree> [new repo]: prints the body
   REF="${OLD_REF:-}" skill_md "$1" >"$caller/plugins/p/skills/demo/SKILL.md"
   git -C "$caller" add -A
   git -C "$caller" commit -q -m base
-  REF="${NEW_REF:-}" skill_md "$2" "${3:-}" >"$caller/plugins/p/skills/demo/SKILL.md"
+  REF="${NEW_REF:-}" skill_md "$2" "${3:-}" "${NEW_PATH:-}" >"$caller/plugins/p/skills/demo/SKILL.md"
   (cd "$caller" && bash "$describe" plugins/p/skills/demo)
 }
 has() { grep -qF -- "$2" <<<"$1" || fail "$3: expected '$2' in:"$'\n'"$1"; }
@@ -173,6 +174,11 @@ has "$body" '`skills/demo/LICENSE.txt`' "the skill's own licence file"
 body="$(describe_update "$t7" "$t8")"
 has "$(warning_block "$body")" "The upstream licence changed" "a changed licence identifier over the same files"
 has "$body" "| Licence at the new commit | GPL-3.0-only;" "the new identifier"
+touch "$GH_STUB/license-$c1.fail"
+body="$(describe_update "$t1" "$t4")"
+rm -f "$GH_STUB/license-$c1.fail"
+lacks "$body" "licence changed" "a licence read that failed at one end, over the same files"
+has "$body" "| Licence at the old commit | unknown; \`LICENSE\` (" "an unknown identifier beside the known file"
 echo "ok: a changed licence, by identifier or by text, is flagged at the top"
 
 # ── an archived repository ───────────────────────────────────────────────────────────────────
@@ -255,6 +261,22 @@ body="$(describe_update "$(tree_of "$c_tag2")" "$(tree_of "$c_last")")"
 has "$body" "| Commits touching the path | 45 |" "the full count"
 has "$body" "And 15 more; see the compare link." "the remainder note"
 echo "ok: at most 30 capped subjects keep the body far below GitHub's limit"
+
+# ── a moved upstream path, and a bounded licence-file list ───────────────────────────────────
+git -C "$src" mv skills/demo skills/renamed
+for i in $(seq 1 12); do printf 'extra %s\n' "$i" >"$src/LICENSE.part$i"; done
+for i in 1 2 3; do printf 'long %s\n' "$i" >"$src/LICENSE.$(printf '%0150d' "$i")"; done
+c_move="$(commit "refactor: move the demo skill")"
+licence "$c_move" MIT
+git -C "$work/forge/acme/skills.git" fetch -q "$src" '+refs/heads/main:refs/heads/main'
+moved_tree="$(git -C "$src" rev-parse "$c_move:skills/renamed")"
+body="$(NEW_PATH=skills/renamed describe_update "$(tree_of "$c_last")" "$moved_tree")"
+has "$body" "](https://github.com/acme/skills/tree/$c_last/skills/demo) |" "the old tree linked at its own path"
+has "$body" "](https://github.com/acme/skills/tree/$c_move/skills/renamed) |" "the new tree linked at its own path"
+has "$body" '| Previous source | `acme/skills` at `skills/demo` |' "the previous path"
+has "$body" ", and 7 more" "the capped licence-file list"
+lacks "$body" "LICENSE.000" "an over-long licence file name"
+echo "ok: each tree links at its own path, and the licence-file list is capped"
 
 # ── the workflow describes every split skill and opens each PR with its description ──────────
 q() { yq -r "$1" "$workflow"; }

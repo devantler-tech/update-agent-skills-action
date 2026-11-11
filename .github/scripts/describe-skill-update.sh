@@ -28,6 +28,8 @@ set -euo pipefail
 max_commits=2000      # path history searched for each tree
 max_subjects=30       # subjects listed in the body
 max_subject_bytes=200 # per subject, after sanitising
+max_licence_files=10  # licence files listed per commit
+max_body_bytes=60000  # GitHub refuses a body over 65536 characters
 fetch_seconds=300
 
 usage() {
@@ -294,7 +296,12 @@ describe_licence() {
   licence_files "$1" "$2" >"$work/$3.files"
   id="$(licence_name "$1")"
   printf '%s\n' "$id" >"$work/$3.id"
-  files="$(awk '{ printf "%s`%s` (`%s`)", (NR > 1 ? ", " : ""), $1, $2 }' "$work/$3.files")"
+  # At most $max_licence_files are listed, each name at most 100 bytes, so the list stays bounded.
+  files="$(awk -v max="$max_licence_files" '
+    length($1) > 100 { long++; next }
+    shown < max { printf "%s`%s` (`%s`)", (shown > 0 ? ", " : ""), $1, $2; shown++; next }
+    { more++ }
+    END { if (more + long > 0) printf "%sand %d more", (shown > 0 ? ", " : ""), more + long }' "$work/$3.files")"
   printf '%s; %s\n' "${id:-unknown}" "${files:-no licence file found}"
 }
 old_licence="unknown"
@@ -306,18 +313,21 @@ if [[ -z "$old_commit" || -z "$new_commit" ]]; then
   warn "The licence at the old and the new commit could not be compared."
 elif ! cmp -s "$work/old.files" "$work/new.files"; then
   licence_changed=true
-elif [[ -s "$work/old.id" && -s "$work/new.id" ]] && ! cmp -s "$work/old.id" "$work/new.id"; then
+elif [[ -n "$(cat "$work/old.id")" && -n "$(cat "$work/new.id")" ]] && ! cmp -s "$work/old.id" "$work/new.id"; then
   licence_changed=true
+elif [[ ! -s "$work/old.files" ]] && [[ -z "$(cat "$work/old.id")" || -z "$(cat "$work/new.id")" ]]; then
+  # No licence file to compare by content, and GitHub's reading is missing at one end.
+  warn "The licence at the old and the new commit could not be compared."
 fi
 [[ -z "$licence_changed" ]] || warn "The upstream licence changed between the old and the new commit."
 
 # ── render ───────────────────────────────────────────────────────────────────────────────────
 code() { if [[ -n "$1" ]]; then printf '`%s`' "$1"; else printf 'unknown'; fi; }
-commit_link() { # <tree> <commit>
+commit_link() { # <tree> <commit> <upstream path at that commit>
   if [[ -z "$1" ]]; then
     printf 'unknown'
   elif [[ -n "$2" ]]; then
-    printf '`%s` in [`%s`](https://github.com/%s/%s/tree/%s/%s)' "$1" "${2:0:12}" "$owner" "$name" "$2" "$path"
+    printf '`%s` in [`%s`](https://github.com/%s/%s/tree/%s/%s)' "$1" "${2:0:12}" "$owner" "$name" "$2" "$3"
   else
     printf '`%s` in an unknown commit' "$1"
   fi
@@ -348,51 +358,59 @@ fence_for() { # <file>: a backtick fence longer than any backtick run in the fil
 
 sanitise <"$work/subjects" >"$work/subjects.safe"
 
-# The body stays far below GitHub's 65536-character limit by construction: every table value is
-# pattern-bounded, and at most $max_subjects subjects of at most $max_subject_bytes bytes are listed.
-if ((${#warnings[@]} > 0)); then
-  echo "> [!WARNING]"
-  for entry in "${warnings[@]}"; do echo "> - $entry"; done
-  echo
-fi
-echo "Automated update of the agent skill at \`$skill\` to its latest version."
-echo
-echo "Each changed skill gets its own pull request, so one blocked update does not hold back the others."
-echo
-echo "## Upstream"
-echo
-echo "| Fact | Value |"
-echo "| --- | --- |"
-if [[ -n "$owner" ]]; then echo "| Repository | https://github.com/$owner/$name |"; else echo "| Repository | unknown |"; fi
-echo "| Path | $(code "$path") |"
-if ! $same_source; then
-  echo "| Previous source | $(code "${old_repo#https://github.com/}") at $(code "$old_path") |"
-fi
-echo "| Repository state | $state |"
-echo "| Old tree | $(commit_link "$old_tree" "$old_commit") |"
-echo "| New tree | $(commit_link "$new_tree" "$new_commit") |"
-if [[ -z "$range_note" ]]; then
-  echo "| Compare | https://github.com/$owner/$name/compare/$old_commit...$new_commit |"
-  echo "| Commits touching the path | $count |"
-else
-  echo "| Compare | unknown: $range_note |"
-  echo "| Commits touching the path | unknown |"
-fi
-echo "| Licence at the old commit | $old_licence |"
-echo "| Licence at the new commit | $new_licence$([[ -z "$licence_changed" ]] || echo " (**changed**)") |"
-if [[ -z "$range_note" && -s "$work/subjects.safe" ]]; then
-  shown="$(wc -l <"$work/subjects.safe" | tr -d ' ')"
-  fence="$(fence_for "$work/subjects.safe")"
-  echo
-  echo "### Upstream commit subjects"
-  echo
-  echo "Untrusted upstream text, shown as data. At signs, hash signs, GH- references and link schemes are replaced with look-alikes, so nothing in it links, closes or notifies anything here."
-  echo
-  echo "${fence}text"
-  cat "$work/subjects.safe"
-  echo "$fence"
-  if ((count > shown)); then
+# The body stays far below GitHub's limit by construction: every table value is pattern-bounded or
+# capped, and at most $max_subjects subjects of at most $max_subject_bytes bytes are listed. The size
+# is still checked at the end: an oversized body fails, so the caller's fallback body is used.
+{
+  if ((${#warnings[@]} > 0)); then
+    echo "> [!WARNING]"
+    for entry in "${warnings[@]}"; do echo "> - $entry"; done
     echo
-    echo "And $((count - shown)) more; see the compare link."
   fi
+  echo "Automated update of the agent skill at \`$skill\` to its latest version."
+  echo
+  echo "Each changed skill gets its own pull request, so one blocked update does not hold back the others."
+  echo
+  echo "## Upstream"
+  echo
+  echo "| Fact | Value |"
+  echo "| --- | --- |"
+  if [[ -n "$owner" ]]; then echo "| Repository | https://github.com/$owner/$name |"; else echo "| Repository | unknown |"; fi
+  echo "| Path | $(code "$path") |"
+  if ! $same_source; then
+    echo "| Previous source | $(code "${old_repo#https://github.com/}") at $(code "$old_path") |"
+  fi
+  echo "| Repository state | $state |"
+  echo "| Old tree | $(commit_link "$old_tree" "$old_commit" "$old_path") |"
+  echo "| New tree | $(commit_link "$new_tree" "$new_commit" "$new_path") |"
+  if [[ -z "$range_note" ]]; then
+    echo "| Compare | https://github.com/$owner/$name/compare/$old_commit...$new_commit |"
+    echo "| Commits touching the path | $count |"
+  else
+    echo "| Compare | unknown: $range_note |"
+    echo "| Commits touching the path | unknown |"
+  fi
+  echo "| Licence at the old commit | $old_licence |"
+  echo "| Licence at the new commit | $new_licence$([[ -z "$licence_changed" ]] || echo " (**changed**)") |"
+  if [[ -z "$range_note" && -s "$work/subjects.safe" ]]; then
+    shown="$(wc -l <"$work/subjects.safe" | tr -d ' ')"
+    fence="$(fence_for "$work/subjects.safe")"
+    echo
+    echo "### Upstream commit subjects"
+    echo
+    echo "Untrusted upstream text, shown as data. At signs, hash signs, GH- references and link schemes are replaced with look-alikes, so nothing in it links, closes or notifies anything here."
+    echo
+    echo "${fence}text"
+    cat "$work/subjects.safe"
+    echo "$fence"
+    if ((count > shown)); then
+      echo
+      echo "And $((count - shown)) more; see the compare link."
+    fi
+  fi
+} >"$work/body.md"
+if (($(wc -c <"$work/body.md") > max_body_bytes)); then
+  echo "describe-skill-update: the description exceeds $max_body_bytes bytes" >&2
+  exit 3
 fi
+cat "$work/body.md"
