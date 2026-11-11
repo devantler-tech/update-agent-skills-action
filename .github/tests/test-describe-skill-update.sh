@@ -82,6 +82,8 @@ cat >"$work/bin/gh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >>"$GH_STUB/calls"
+# A forge that never answers, for the time budget.
+[[ ! -f "$GH_STUB/hang" ]] || sleep 60
 [[ "$1" == api && $# -eq 2 ]] || { echo "unexpected gh call: $*" >&2; exit 64; }
 case "$2" in
   repos/acme/skills)
@@ -283,6 +285,8 @@ q() { yq -r "$1" "$workflow"; }
 keep="$(q '.jobs.update-agent-skills.steps[] | select(.name == "📋 Keep the per-skill splitter") | .run')"
 grep -qF '.github/scripts/describe-skill-update.sh' <<<"$keep" ||
   fail "the describer must be copied out of this workflow's own commit with the splitter"
+grep -qF '.github/scripts/describe-skill-updates.sh' <<<"$keep" ||
+  fail "the budgeted describing loop must be copied out of this workflow's own commit with the splitter"
 step='.jobs.update-agent-skills.steps[] | select(.name == "📝 Describe each skill'\''s update")'
 [[ "$(q "$step | .if")" == "\${{ steps.split.outputs.skills != '' && steps.split.outputs.skills != '[]' }}" ]] ||
   fail "the describe step must run whenever a per-skill patch exists"
@@ -300,6 +304,7 @@ q "$step | .run" >"$work/describe-step.sh"
 run_step() { # <manifest> <describer>
   mkdir -p "$work/runner/skill-updates"
   cp "$2" "$work/runner/describe-skill-update.sh"
+  cp "$repo_root/.github/scripts/describe-skill-updates.sh" "$work/runner/describe-skill-updates.sh"
   (cd "$caller" && RUNNER_TEMP="$work/runner" SKILLS="$1" bash "$work/describe-step.sh")
 }
 describe_update "$t1" "$t4" >/dev/null
@@ -311,6 +316,20 @@ run_step '[{"slug":"p-skills-demo","path":"plugins/p/skills/demo"}]' "$work/brok
 body="$(cat "$work/runner/skill-updates/p-skills-demo.md")"
 has "$(warning_block "$body")" "could not be described" "a describer failure"
 has "$body" "Automated update of this agent skill to its latest version." "the fallback body"
-echo "ok: the workflow describes each split skill, falls back visibly, and each PR uses its description"
+DESCRIBE_SKILL_UPDATES_BUDGET_SECONDS=0 run_step '[{"slug":"p-skills-demo","path":"plugins/p/skills/demo"}]' "$describe" >/dev/null 2>&1 ||
+  fail "a spent time budget must not stop the update"
+body="$(cat "$work/runner/skill-updates/p-skills-demo.md")"
+has "$(warning_block "$body")" "could not be described" "a spent time budget"
+lacks "$body" "| Compare |" "a description written after the time budget was spent"
+# A forge that never answers holds the real describer only until the budget runs out.
+touch "$GH_STUB/hang"
+start="$(date +%s)"
+DESCRIBE_SKILL_UPDATES_BUDGET_SECONDS=2 run_step '[{"slug":"p-skills-demo","path":"plugins/p/skills/demo"}]' "$describe" >/dev/null 2>&1 ||
+  fail "a forge that never answers must not stop the update"
+elapsed=$(($(date +%s) - start))
+rm -f "$GH_STUB/hang"
+((elapsed < 10)) || fail "a forge that never answers held the describe step for ${elapsed}s"
+has "$(warning_block "$(cat "$work/runner/skill-updates/p-skills-demo.md")")" "could not be described" "a forge that never answers"
+echo "ok: the workflow describes each split skill within its time budget, falls back visibly, and each PR uses its description"
 
 echo "PASS: per-skill update PRs state the upstream range, licence and repository state of each skill"

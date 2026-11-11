@@ -149,6 +149,7 @@ jobs:
         run: |
           cp .devantler-tech-actions/.github/scripts/split-skill-updates.sh "$RUNNER_TEMP/split-skill-updates.sh"
           cp .devantler-tech-actions/.github/scripts/describe-skill-update.sh "$RUNNER_TEMP/describe-skill-update.sh"
+          cp .devantler-tech-actions/.github/scripts/describe-skill-updates.sh "$RUNNER_TEMP/describe-skill-updates.sh"
 
       # Root scans must not discover the checkout's fixture skills, and the PR must not
       # carry the checkout as a stray gitlink. The action itself resolves through $/.
@@ -191,20 +192,10 @@ jobs:
         run: |
           set -euo pipefail
           jq -r '.[] | [.slug, .path] | @tsv' <<<"$SKILLS" > "$RUNNER_TEMP/skills.tsv"
-          while IFS=$'\t' read -r slug path; do
-            body="$RUNNER_TEMP/skill-updates/${slug}.md"
-            if ! bash "$RUNNER_TEMP/describe-skill-update.sh" "$path" > "$body"; then
-              echo "::warning::Could not describe the update of ${path}; its PR says so."
-              {
-                echo "> [!WARNING]"
-                echo "> - The upstream range, licence and repository state of this update could not be described; review them by hand."
-                echo
-                echo "Automated update of this agent skill to its latest version."
-                echo
-                echo "Each changed skill gets its own pull request, so one blocked update does not hold back the others."
-              } > "$body"
-            fi
-          done < "$RUNNER_TEMP/skills.tsv"
+          # One total time budget for every description (#15): once it is spent, the remaining
+          # skills get the warning body, so the pull requests still open.
+          bash "$RUNNER_TEMP/describe-skill-updates.sh" "$RUNNER_TEMP/describe-skill-update.sh" \
+            "$RUNNER_TEMP/skill-updates" < "$RUNNER_TEMP/skills.tsv"
 
       - name: 📤 Upload the per-skill patches
         if: ${{ steps.split.outputs.skills != '' && steps.split.outputs.skills != '[]' }}
