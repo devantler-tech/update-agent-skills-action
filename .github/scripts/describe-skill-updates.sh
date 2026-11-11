@@ -63,6 +63,9 @@ bounded() {
   watcher=$!
   set +m
   wait "$pid" || rc=$?
+  # Whatever is left in the group once the describer has exited, such as a child that ignored the
+  # stop, is a straggler: it is killed now, before the watcher that would have escalated goes.
+  kill -KILL -- "-$pid" 2>/dev/null || true
   kill -TERM -- "-$watcher" 2>/dev/null || true
   wait "$watcher" 2>/dev/null || true
   return "$rc"

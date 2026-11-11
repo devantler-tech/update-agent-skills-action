@@ -31,7 +31,7 @@ chmod +x "$work/bin/date"
 export PATH="$work/bin:$PATH" CLOCK="$work/clock"
 
 # The stub describes <path> as one line. STUB_STEP moves the clock forward per call, STUB_FAIL names a
-# path it fails for, and STUB_HANG a path it hangs on with a child, recording the child's pid.
+# path it fails for, and STUB_HANG a path it hangs on with a child that ignores SIGTERM, recording the child's pid.
 cat >"$work/describer.sh" <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
@@ -40,7 +40,8 @@ echo "$(($(cat "$CLOCK") + ${STUB_STEP:-0}))" >"$CLOCK"
 if [[ "$1" == "${STUB_FAIL:-}" ]]; then echo "partial"; exit 3; fi
 if [[ "$1" == "${STUB_HANG:-}" ]]; then
   echo "partial"
-  sleep 60 &
+  # A child that ignores the stop, so only the cleanup after the describer exits can end it.
+  (trap '' TERM; exec sleep 60) &
   echo "$!" >"$STUB_CHILD"
   wait
 fi
