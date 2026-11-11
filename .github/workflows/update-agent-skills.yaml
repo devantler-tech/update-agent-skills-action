@@ -146,7 +146,9 @@ jobs:
 
       - name: 📋 Keep the per-skill splitter
         if: ${{ inputs.pr-per-skill }}
-        run: cp .devantler-tech-actions/.github/scripts/split-skill-updates.sh "$RUNNER_TEMP/split-skill-updates.sh"
+        run: |
+          cp .devantler-tech-actions/.github/scripts/split-skill-updates.sh "$RUNNER_TEMP/split-skill-updates.sh"
+          cp .devantler-tech-actions/.github/scripts/describe-skill-update.sh "$RUNNER_TEMP/describe-skill-update.sh"
 
       # Root scans must not discover the checkout's fixture skills, and the PR must not
       # carry the checkout as a stray gitlink. The action itself resolves through $/.
@@ -176,6 +178,33 @@ jobs:
           manifest="$(bash "$RUNNER_TEMP/split-skill-updates.sh" "$SKILLS_DIR" "$RUNNER_TEMP/skill-updates")"
           echo "Per-skill updates: $manifest"
           echo "skills=$manifest" >> "$GITHUB_OUTPUT"
+
+      # Each per-skill PR states its skill's upstream range, licence and repository state
+      # (devantler-tech/.github#745). HEAD still holds every old copy and the working tree every new
+      # one. Upstream text is hostile and the describer renders it inert; a describer failure leaves
+      # a visible warning in that PR instead of stopping every other skill's update.
+      - name: 📝 Describe each skill's update
+        if: ${{ steps.split.outputs.skills != '' && steps.split.outputs.skills != '[]' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SKILLS: ${{ steps.split.outputs.skills }}
+        run: |
+          set -euo pipefail
+          jq -r '.[] | [.slug, .path] | @tsv' <<<"$SKILLS" > "$RUNNER_TEMP/skills.tsv"
+          while IFS=$'\t' read -r slug path; do
+            body="$RUNNER_TEMP/skill-updates/${slug}.md"
+            if ! bash "$RUNNER_TEMP/describe-skill-update.sh" "$path" > "$body"; then
+              echo "::warning::Could not describe the update of ${path}; its PR says so."
+              {
+                echo "> [!WARNING]"
+                echo "> - The upstream range, licence and repository state of this update could not be described; review them by hand."
+                echo
+                echo "Automated update of this agent skill to its latest version."
+                echo
+                echo "Each changed skill gets its own pull request, so one blocked update does not hold back the others."
+              } > "$body"
+            fi
+          done < "$RUNNER_TEMP/skills.tsv"
 
       - name: 📤 Upload the per-skill patches
         if: ${{ steps.split.outputs.skills != '' && steps.split.outputs.skills != '[]' }}
@@ -287,10 +316,8 @@ jobs:
         with:
           commit-message: ${{ inputs.commit-message }} (${{ matrix.skill.path }})
           title: ${{ inputs.pr-title }} (${{ matrix.skill.path }})
-          body: |
-            Automated update of the agent skill at `${{ matrix.skill.path }}` to its latest version.
-
-            Each changed skill gets its own pull request, so one blocked update does not hold back the others.
+          # Written by the update job's describe step, which always leaves one per skill.
+          body-path: ${{ runner.temp }}/skill-updates/${{ matrix.skill.slug }}.md
           branch: ${{ inputs.pr-branch }}-${{ matrix.skill.slug }}
           labels: ${{ inputs.pr-labels }}
           delete-branch: true

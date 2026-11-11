@@ -911,6 +911,11 @@ jobs:
       - name: "\U0001F9E9 Test the per-skill PR mode in both flag states"
         shell: bash
         run: bash .github/tests/test-update-agent-skills-per-skill.sh
+      # Each per-skill PR states its skill's upstream range, licence and repository state, with
+      # upstream text inert (devantler-tech/.github#745), against a local upstream and a stub forge.
+      - name: "\U0001F4DD Test the per-skill update description"
+        shell: bash
+        run: bash .github/tests/test-describe-skill-update.sh
       - name: "\U0001F4E6 Seed pinned agent-skill fixture"
         shell: bash
         run: |
