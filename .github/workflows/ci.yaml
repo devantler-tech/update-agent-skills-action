@@ -916,6 +916,10 @@ jobs:
       - name: "\U0001F4DD Test the per-skill update description"
         shell: bash
         run: bash .github/tests/test-describe-skill-update.sh
+      # Every description shares one time budget, so slow upstreams cannot stop the per-skill PRs (#15).
+      - name: "\U000023F1 Test the time budget for describing skill updates"
+        shell: bash
+        run: bash .github/tests/test-describe-skill-updates.sh
       - name: "\U0001F4E6 Seed pinned agent-skill fixture"
         shell: bash
         run: |
