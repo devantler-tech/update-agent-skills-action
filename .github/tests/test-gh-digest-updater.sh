@@ -25,7 +25,7 @@ check_boundary() {
     ($steps | length) == 5 and all($steps[];
       (keys - ["name","id","if","uses","with","run"] | length) == 0) and
     ($steps[0] | del(.name)) == {
-      uses:"step-security/harden-runner@46b06cea07f9e64621fdf066ba77ac6915163d43",
+      uses:"step-security/harden-runner@1d88384fd173af6ecb012dfd0264a306b711241a",
       with:{"egress-policy":"audit"}} and
     ([$steps[]|select(.id=="source")|{uses,with}] == [{
       uses:"actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
@@ -39,7 +39,7 @@ check_boundary() {
       with:{"client-id":"${{ vars.RELEASE_APP_CLIENT_ID }}","private-key":"${{ secrets.RELEASE_APP_PRIVATE_KEY }}",
         owner:"devantler-tech",repositories:"update-agent-skills-action","permission-contents":"write","permission-pull-requests":"write"}}]) and
     ([$steps[]|select(.id=="pr")][0] as $pr |
-      $pr.uses == "peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1" and
+      $pr.uses == "peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8" and
       $pr.if == "${{ steps.prepare.outputs.changed == '\''true'\'' }}" and
       $pr.with."sign-commits" == true and $pr.with.draft == "always-true" and
       $pr.with."add-paths" == ".scripts/gh-release-digests.tsv" and
