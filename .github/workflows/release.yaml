@@ -11,7 +11,7 @@ on:
 permissions: {}
 jobs:
   release:
-    uses: devantler-tech/.github/.github/workflows/create-release.yaml@1a0eb6f18b88a7816b91cbf692b8ad8ea9a08123 # v20.1.17
+    uses: devantler-tech/.github/.github/workflows/create-release.yaml@cc156a3693019fdbe9817c46f1a91cd50a124695 # v21.7.3
     with:
       dry-run: ${{ inputs.dry-run || false }}
       disable-issue-side-effects: true
