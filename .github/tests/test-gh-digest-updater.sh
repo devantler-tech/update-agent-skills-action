@@ -39,7 +39,7 @@ check_boundary() {
       with:{"client-id":"${{ vars.RELEASE_APP_CLIENT_ID }}","private-key":"${{ secrets.RELEASE_APP_PRIVATE_KEY }}",
         owner:"devantler-tech",repositories:"update-agent-skills-action","permission-contents":"write","permission-pull-requests":"write"}}]) and
     ([$steps[]|select(.id=="pr")][0] as $pr |
-      $pr.uses == "peter-evans/create-pull-request@15733dbdfeedb4f7fdb73d13c6f5ac83b710fab8" and
+      $pr.uses == "peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1" and
       $pr.if == "${{ steps.prepare.outputs.changed == '\''true'\'' }}" and
       $pr.with."sign-commits" == true and $pr.with.draft == "always-true" and
       $pr.with."add-paths" == ".scripts/gh-release-digests.tsv" and
