@@ -16,6 +16,5 @@ jobs:
       dry-run: ${{ inputs.dry-run || false }}
       disable-issue-side-effects: true
       warn-missing-breaking-bang: true
-      protected-release: true
     secrets:
-      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
