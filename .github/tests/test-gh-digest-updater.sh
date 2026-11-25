@@ -56,8 +56,8 @@ yq -o=json '.' "$root/.github/chainguard/refresh-gh-digests.sts.yaml" | jq -e --
   issuer:"https://token.actions.githubusercontent.com", subject:("repo:devantler-tech@178524219/" + $repo + "@1434995459:ref:refs/heads/main"),
   claim_pattern:{repository_owner_id:"178524219",
     job_workflow_ref:("devantler-tech/" + $repo + "/\\.github/workflows/refresh-gh-digests\\.yaml@refs/heads/main")},
-  permissions:{contents:"write",pull_requests:"write"}, app:"botantler-2"}' >/dev/null ||
-  fail 'the broker trust policy must grant only repository-scoped contents and pull requests write, on botantler-2'
+  permissions:{contents:"write",pull_requests:"write"}}' >/dev/null ||
+  fail 'the broker trust policy must grant only repository-scoped contents and pull requests write, naming no App'
 for mutation in environment retired-key hardening-source admission token-scope persisted source signing draft ready-on-update paths write-token early-token early-prepare early-pr tolerated fallback ambient-secret early-secret; do
   cp "$workflow" "$work/mutated.yaml"
   # shellcheck disable=SC2016 # Literal GitHub expressions in boundary controls.
