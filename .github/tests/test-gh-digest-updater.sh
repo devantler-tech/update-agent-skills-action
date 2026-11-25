@@ -19,7 +19,7 @@ check_boundary() {
     (.jobs | keys) == ["refresh"] and
     ($job | keys | sort) == ["concurrency","if","permissions","runs-on","steps","timeout-minutes"] and
     $job."runs-on" == "ubuntu-latest" and $job."timeout-minutes" == 10 and
-    $job.if == $admission and $job.permissions == {contents:"read"} and
+    $job.if == $admission and $job.permissions == {contents:"read","id-token":"write"} and
     $job.concurrency == {group:"refresh-gh-digests",queue:"max","cancel-in-progress":false} and
     ($steps | length) == 5 and all($steps[];
       (keys - ["name","id","if","uses","with","run"] | length) == 0) and
@@ -33,10 +33,9 @@ check_boundary() {
       run:"bash .github/scripts/prepare-gh-digest-update.sh",if:null,tolerate:false}]) and
     ([$steps[].id] == [null,"source","prepare","app-token","pr"]) and
     ([$steps[]|select(.id=="app-token")|{uses,if,with}] == [{
-      uses:"actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510",
+      uses:"octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05",
       if:"${{ steps.prepare.outputs.changed == '\''true'\'' }}",
-      with:{"client-id":"${{ vars.APP_CLIENT_ID }}","private-key":"${{ secrets.APP_PRIVATE_KEY }}",
-        owner:"devantler-tech",repositories:"update-agent-skills-action","permission-contents":"write","permission-pull-requests":"write"}}]) and
+      with:{domain:"sts.platform.devantler.tech",scope:"devantler-tech/update-agent-skills-action",identity:"refresh-gh-digests"}}]) and
     ([$steps[]|select(.id=="pr")][0] as $pr |
       $pr.uses == "peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1" and
       $pr.if == "${{ steps.prepare.outputs.changed == '\''true'\'' }}" and
@@ -51,6 +50,14 @@ check_boundary() {
   ' >/dev/null
 }
 check_boundary "$workflow" || fail 'updater source/credential/PR boundary is unsafe'
+# The token comes from the GitHub token broker (devantler-tech/monorepo ADR 0020): its whole
+# authority is this repository trust policy, which must stay exactly the reviewed grant.
+yq -o=json '.' "$root/.github/chainguard/refresh-gh-digests.sts.yaml" | jq -e --arg repo update-agent-skills-action '. == {
+  issuer:"https://token.actions.githubusercontent.com", subject:("repo:devantler-tech/" + $repo + ":ref:refs/heads/main"),
+  claim_pattern:{repository_owner_id:"178524219",
+    job_workflow_ref:("devantler-tech/" + $repo + "/\\.github/workflows/refresh-gh-digests\\.yaml@refs/heads/main")},
+  permissions:{contents:"write",pull_requests:"write"}, app:"botantler-2"}' >/dev/null ||
+  fail 'the broker trust policy must grant only repository-scoped contents and pull requests write, on botantler-2'
 for mutation in environment retired-key hardening-source admission token-scope persisted source signing draft ready-on-update paths write-token early-token early-prepare early-pr tolerated fallback ambient-secret early-secret; do
   cp "$workflow" "$work/mutated.yaml"
   # shellcheck disable=SC2016 # Literal GitHub expressions in boundary controls.
@@ -59,7 +66,7 @@ for mutation in environment retired-key hardening-source admission token-scope p
     retired-key) yq -i '(.jobs.refresh.steps[]|select(.id=="app-token")).with."private-key" = "${{ secrets.RELEASE_APP_PRIVATE_KEY }}"' "$work/mutated.yaml" ;;
     hardening-source) yq -i '.jobs.refresh.steps[0].uses = "step-security/harden-runner@main"' "$work/mutated.yaml" ;;
     admission) yq -i '.jobs.refresh.if = true' "$work/mutated.yaml" ;;
-    token-scope) yq -i '(.jobs.refresh.steps[]|select(.id=="app-token")).with.repositories = "ksail"' "$work/mutated.yaml" ;;
+    token-scope) yq -i '(.jobs.refresh.steps[]|select(.id=="app-token")).with.scope = "devantler-tech/ksail"' "$work/mutated.yaml" ;;
     persisted) yq -i '(.jobs.refresh.steps[]|select(.id=="source")).with."persist-credentials" = true' "$work/mutated.yaml" ;;
     source) yq -i '(.jobs.refresh.steps[]|select(.id=="source")).with.ref = "main"' "$work/mutated.yaml" ;;
     signing) yq -i '(.jobs.refresh.steps[]|select(.id=="pr")).with."sign-commits" = false' "$work/mutated.yaml" ;;
