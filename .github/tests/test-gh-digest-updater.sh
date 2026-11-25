@@ -53,7 +53,7 @@ check_boundary "$workflow" || fail 'updater source/credential/PR boundary is uns
 # The token comes from the GitHub token broker (devantler-tech/monorepo ADR 0020): its whole
 # authority is this repository trust policy, which must stay exactly the reviewed grant.
 yq -o=json '.' "$root/.github/chainguard/refresh-gh-digests.sts.yaml" | jq -e --arg repo update-agent-skills-action '. == {
-  issuer:"https://token.actions.githubusercontent.com", subject:("repo:devantler-tech/" + $repo + ":ref:refs/heads/main"),
+  issuer:"https://token.actions.githubusercontent.com", subject:("repo:devantler-tech@178524219/" + $repo + "@1434995459:ref:refs/heads/main"),
   claim_pattern:{repository_owner_id:"178524219",
     job_workflow_ref:("devantler-tech/" + $repo + "/\\.github/workflows/refresh-gh-digests\\.yaml@refs/heads/main")},
   permissions:{contents:"write",pull_requests:"write"}, app:"botantler-2"}' >/dev/null ||
