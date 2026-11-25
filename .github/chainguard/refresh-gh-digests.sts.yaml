@@ -1,0 +1,14 @@
+---
+# Repository trust policy for .github/workflows/refresh-gh-digests.yaml, served by the GitHub token broker
+# (devantler-tech/monorepo ADR 0020). Only that workflow, on this repository's main branch,
+# may exchange its Actions OIDC token. It grants contents and pull requests write, to open the digest refresh pull request on this repository alone.
+issuer: https://token.actions.githubusercontent.com
+# This repository issues the immutable OIDC subject form (use_immutable_subject), with the owner and
+# repository IDs, so the subject names both.
+subject: repo:devantler-tech@178524219/update-agent-skills-action@1434995459:ref:refs/heads/main
+claim_pattern:
+  repository_owner_id: "178524219"
+  job_workflow_ref: devantler-tech/update-agent-skills-action/\.github/workflows/refresh-gh-digests\.yaml@refs/heads/main
+permissions:
+  contents: write
+  pull_requests: write
