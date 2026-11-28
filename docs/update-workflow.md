@@ -23,6 +23,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # always required: GitHub checks the called jobs' permissions at startup
     with:
       dir: .agents/skills
       # Optional: keep vendored skills out of `npx skills add <owner>/<repo>` listings.
@@ -33,7 +34,12 @@ The workflow assumes skills were previously installed with [`devantler-tech/setu
 
 With the default `GITHUB_TOKEN`, enable **Allow GitHub Actions to create and approve pull requests** in the repository's [Actions settings](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/enabling-features-for-your-repository/managing-github-actions-settings-for-a-repository). Job permissions alone do not enable it.
 
-To use a GitHub App instead, configure the caller's `APP_CLIENT_ID` variable and forward its private-key secret explicitly:
+Every caller job grants `id-token: write`, even with the default token: GitHub checks a called job's
+permissions when it loads the run, and a caller that grants less fails at startup.
+
+To open the PR with a GitHub App token instead, set `use-app-token: true`. The token comes from the
+devantler-tech GitHub token broker, so this works only in devantler-tech repositories, on `main`. No
+App key is passed:
 
 ```yaml
 jobs:
@@ -42,11 +48,10 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write
     with:
       dir: .agents/skills
       use-app-token: true
-    secrets:
-      APP_PRIVATE_KEY: ${{ secrets.APP_PRIVATE_KEY }}
 ```
 
 #### Secrets and Inputs
@@ -64,8 +69,8 @@ jobs:
 | `pr-labels`      | Input (string)  | `dependencies,automation`            | No       | Comma-separated labels for the update PR                               |
 | `commit-message` | Input (string)  | `chore(deps): update agent skills`   | No       | Commit message for the update PR                                       |
 | `dry-run`        | Input (boolean) | `false`                              | No       | Skip update and PR creation (validate workflow interface only)         |
-| `use-app-token` | Input (boolean) | `false` | No | Create the update PR with a GitHub App token so it triggers the caller's CI |
-| `APP_PRIVATE_KEY` | Secret | - | When `use-app-token` is true | GitHub App private key, paired with the `APP_CLIENT_ID` variable |
+| `use-app-token` | Input (boolean) | `false` | No | Create the update PR with a GitHub App token from the devantler-tech GitHub token broker, so it triggers the caller's CI. devantler-tech repositories only, on `main` |
+| `APP_PRIVATE_KEY` | Secret | - | No | Retired and unused: the App token comes from the GitHub token broker. Still declared so callers that pass it keep working |
 
 > **Note:** The calling workflow must grant `contents: write` and `pull-requests: write` permissions.
 
