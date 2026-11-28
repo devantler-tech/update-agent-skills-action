@@ -73,8 +73,9 @@ on:
         type: boolean
       use-app-token:
         description: >-
-          When `true`, create the update PR with a GitHub App token (minted from the `APP_CLIENT_ID`
-          variable and the `APP_PRIVATE_KEY` secret) instead of the default `GITHUB_TOKEN`. A PR
+          When `true`, create the update PR with a GitHub App token from the GitHub token broker
+          instead of the default `GITHUB_TOKEN`. The broker serves devantler-tech repositories only,
+          on `main`, and every caller job grants `id-token: write`. A PR
           opened with `GITHUB_TOKEN` does NOT trigger the caller's `on: pull_request`/`push` CI runs,
           so its required checks never report and it stays blocked; an App token avoids this.
           Defaults to `false` (previous behaviour using `GITHUB_TOKEN`).
@@ -84,8 +85,8 @@ on:
     secrets:
       APP_PRIVATE_KEY:
         description: >-
-          GitHub App private key, required only when `use-app-token` is `true`. Paired with the
-          `APP_CLIENT_ID` repository/organization variable to mint an App token for PR creation.
+          Retired and unused: the App token comes from the GitHub token broker. Still declared so
+          callers that pass it keep working.
         required: false
     outputs:
       skills:
@@ -106,6 +107,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # proves this job to the GitHub token broker (devantler-tech/monorepo ADR 0020)
     outputs:
       skills: ${{ steps.split.outputs.skills }}
     steps:
@@ -117,15 +119,11 @@ jobs:
       - name: 🔑 Generate GitHub App token
         id: app-token
         if: ${{ inputs.use-app-token }}
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          # Scope the token to least privilege — exactly what this job needs
-          # (checkout read + create-pull-request push/open) — instead of
-          # inheriting the App installation's blanket permissions.
-          permission-contents: write
-          permission-pull-requests: write
+          domain: sts.platform.devantler.tech
+          scope: devantler-tech
+          identity: update-agent-skills
 
       - name: 📄 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -243,6 +241,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # proves this job to the GitHub token broker (devantler-tech/monorepo ADR 0020)
     strategy:
       fail-fast: false
       matrix:
@@ -256,12 +255,11 @@ jobs:
       - name: 🔑 Generate GitHub App token
         id: app-token
         if: ${{ inputs.use-app-token }}
-        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        uses: octo-sts/action@f603d3be9d8dd9871a265776e625a27b00effe05 # v1.1.1
         with:
-          client-id: ${{ vars.APP_CLIENT_ID }}
-          private-key: ${{ secrets.APP_PRIVATE_KEY }}
-          permission-contents: write
-          permission-pull-requests: write
+          domain: sts.platform.devantler.tech
+          scope: devantler-tech
+          identity: update-agent-skills
 
       - name: 📄 Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

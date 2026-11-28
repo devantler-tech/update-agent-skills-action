@@ -1052,6 +1052,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # lets the skill updater (dry-run here; GitHub checks the called jobs' permissions even when they skip, and the broker admits only main runs) prove its identity to the GitHub token broker (ADR 0020)
     with:
       dry-run: true
   # Flag-on state of the opt-in per-skill PRs (#1309), so the input stays part of the interface;
@@ -1062,6 +1063,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      id-token: write # lets the skill updater (dry-run here; GitHub checks the called jobs' permissions even when they skip, and the broker admits only main runs) prove its identity to the GitHub token broker (ADR 0020)
     with:
       dry-run: true
       pr-per-skill: true
